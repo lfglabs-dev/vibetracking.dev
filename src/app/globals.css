@@ -1,14 +1,14 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   /* Vibetracking color palette */
-  --color-pink: #FEA6CC;
-  --color-blue: #B3D8F5;
-  --color-green: #AAE7C0;
-  --color-yellow: #F0F69B;
+  --color-pink: #fea6cc;
+  --color-blue: #b3d8f5;
+  --color-green: #aae7c0;
+  --color-yellow: #f0f69b;
   --color-black: #232323;
-  --color-white: #FFFFFF;
-  --color-bg: #EEF0F2;
+  --color-white: #ffffff;
+  --color-bg: #eef0f2;
 
   --background: var(--color-bg);
   --foreground: var(--color-black);
@@ -24,12 +24,12 @@
   --font-sans: var(--font-rubik);
 
   /* Custom colors for Tailwind */
-  --color-pink: #FEA6CC;
-  --color-blue: #B3D8F5;
-  --color-green: #AAE7C0;
-  --color-yellow: #F0F69B;
+  --color-pink: #fea6cc;
+  --color-blue: #b3d8f5;
+  --color-green: #aae7c0;
+  --color-yellow: #f0f69b;
   --color-charcoal: #232323;
-  --color-offwhite: #EEF0F2;
+  --color-offwhite: #eef0f2;
 }
 
 body {
@@ -100,7 +100,15 @@ body {
   border: 1px solid var(--color-black);
 }
 
-.tag-pink { background-color: var(--color-pink); }
-.tag-blue { background-color: var(--color-blue); }
-.tag-green { background-color: var(--color-green); }
-.tag-yellow { background-color: var(--color-yellow); }
+.tag-pink {
+  background-color: var(--color-pink);
+}
+.tag-blue {
+  background-color: var(--color-blue);
+}
+.tag-green {
+  background-color: var(--color-green);
+}
+.tag-yellow {
+  background-color: var(--color-yellow);
+}

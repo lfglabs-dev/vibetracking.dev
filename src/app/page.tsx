@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
 import { CTABox } from "@/components/home/CTABox";
 import Link from "next/link";
+import Image from "next/image";
 
 interface UserData {
   id: string;
@@ -222,12 +223,75 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto relative">
+        <div className="pointer-events-none select-none absolute inset-0 z-0 overflow-visible" aria-hidden="true">
+          {/* Hero section stickers - more prominent, flanking the title */}
+          <Image
+            src="/stickers/1.png"
+            alt=""
+            width={180}
+            height={180}
+            className="absolute top-[20px] -left-16 md:-left-28 lg:-left-36 w-28 md:w-40 lg:w-48 rotate-[-12deg] hidden sm:block drop-shadow-lg"
+          />
+          <Image
+            src="/stickers/2.png"
+            alt=""
+            width={180}
+            height={180}
+            className="absolute top-[10px] -right-16 md:-right-28 lg:-right-36 w-28 md:w-40 lg:w-48 rotate-[15deg] hidden sm:block drop-shadow-lg"
+          />
+          {/* Second row of hero stickers - near description */}
+          <Image
+            src="/stickers/3.png"
+            alt=""
+            width={160}
+            height={160}
+            className="absolute top-[160px] -left-12 md:-left-24 lg:-left-32 w-24 md:w-36 lg:w-44 rotate-[8deg] hidden sm:block drop-shadow-lg"
+          />
+          <Image
+            src="/stickers/4.png"
+            alt=""
+            width={160}
+            height={160}
+            className="absolute top-[180px] -right-12 md:-right-24 lg:-right-32 w-24 md:w-36 lg:w-44 rotate-[-10deg] hidden sm:block drop-shadow-lg"
+          />
+          {/* Leaderboard section stickers */}
+          <Image
+            src="/stickers/5.png"
+            alt=""
+            width={140}
+            height={140}
+            className="absolute top-[480px] -left-16 md:-left-24 w-24 md:w-32 rotate-[-6deg] hidden md:block drop-shadow-lg"
+          />
+          <Image
+            src="/stickers/6.png"
+            alt=""
+            width={140}
+            height={140}
+            className="absolute top-[480px] -right-16 md:-right-24 w-24 md:w-32 rotate-[14deg] hidden md:block drop-shadow-lg"
+          />
+          {/* Additional stickers lower on leaderboard */}
+          <Image
+            src="/stickers/1.png"
+            alt=""
+            width={120}
+            height={120}
+            className="absolute top-[720px] -left-14 md:-left-20 w-20 md:w-28 rotate-[12deg] hidden lg:block drop-shadow-lg opacity-90"
+          />
+          <Image
+            src="/stickers/2.png"
+            alt=""
+            width={120}
+            height={120}
+            className="absolute top-[750px] -right-14 md:-right-20 w-20 md:w-28 rotate-[-8deg] hidden lg:block drop-shadow-lg opacity-90"
+          />
+        </div>
+        <div className="relative z-10">
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-black">
-            <span className="text-[#FEA6CC]">vibe</span>
-            <span className="text-[#AAE7C0]">tracking</span>
+            <span className="text-[#E85A9A]">vibe</span>
+            <span className="text-[#3DB06B]">tracking</span>
           </h1>
 
           {user ? (
@@ -259,6 +323,7 @@ export default async function Home() {
         <footer className="mt-12 text-center text-sm text-[#232323]/50">
           <p>Track your AI coding vibes with Claude Code, Codex, and Cursor</p>
         </footer>
+      </div>
       </div>
     </div>
   );
