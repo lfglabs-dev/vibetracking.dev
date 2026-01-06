@@ -13,6 +13,31 @@ export function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
+const standardCurrencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+
+const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
+
+export function formatCurrency(amount: number): string {
+  if (!Number.isFinite(amount)) {
+    return "$0.00";
+  }
+
+  if (amount >= 1000) {
+    return compactCurrencyFormatter.format(amount);
+  }
+
+  return standardCurrencyFormatter.format(amount);
+}
+
 export function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);

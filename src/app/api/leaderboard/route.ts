@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { estimateApiSpendUsd } from "@/lib/pricing";
 
 interface UserData {
   id: string;
@@ -11,7 +12,7 @@ interface UserData {
   anonymous_id: string | null;
 }
 
-interface LeaderboardEntry {
+interface LeaderboardRow {
   user_id: string;
   total_tokens: number;
   total_sessions: number;
@@ -64,11 +65,10 @@ export async function GET(request: Request) {
     }
 
     // Transform data for response
-    const transformed = (leaderboard as unknown as LeaderboardEntry[]).map((entry, index) => {
+    const transformed = (leaderboard as unknown as LeaderboardRow[]).map((entry, index) => {
       const user = entry.users[0]; // Supabase returns array even with !inner
 
       return {
-        rank: index + 1,
         userId: user.id,
         username: user.username,
         displayName: user.display_name,
@@ -80,14 +80,25 @@ export async function GET(request: Request) {
         totalSessions: entry.total_sessions,
         currentStreak: entry.current_streak_days,
         favoriteModel: entry.favorite_model,
+        estimatedSpend: estimateApiSpendUsd({
+          model: entry.favorite_model,
+          totalTokens: entry.total_tokens,
+        }),
         profileUrl: user.is_anonymous
           ? `/u/${user.anonymous_id}`
           : `/@${user.username}`,
       };
     });
 
+    const ranked = transformed
+      .sort((a, b) => b.estimatedSpend - a.estimatedSpend)
+      .map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+      }));
+
     return NextResponse.json({
-      leaderboard: transformed,
+      leaderboard: ranked,
       period,
     });
   } catch (error) {

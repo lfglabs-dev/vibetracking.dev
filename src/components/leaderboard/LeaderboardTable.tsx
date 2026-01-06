@@ -1,6 +1,6 @@
 "use client";
 
-import { formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import Link from "next/link";
 
 interface LeaderboardEntry {
@@ -11,7 +11,7 @@ interface LeaderboardEntry {
   avatarUrl: string | null;
   company: string | null;
   isAnonymous: boolean;
-  totalTokens: number;
+  estimatedSpend: number;
   totalSessions: number;
   currentStreak: number;
   profileUrl: string;
@@ -44,7 +44,7 @@ export function LeaderboardTable({
             <th className="py-3 px-4 font-medium">Rank</th>
             <th className="py-3 px-4 font-medium">Vibe Coder</th>
             <th className="py-3 px-4 font-medium">Company</th>
-            <th className="py-3 px-4 font-medium text-right">Tokens</th>
+            <th className="py-3 px-4 font-medium text-right">Est. API Spend</th>
             <th className="py-3 px-4 font-medium text-right">Sessions</th>
             <th className="py-3 px-4 font-medium text-right">Streak</th>
           </tr>
@@ -115,10 +115,10 @@ export function LeaderboardTable({
                   )}
                 </td>
                 <td className="py-4 px-4 text-right font-mono font-bold">
-                  {formatNumber(entry.totalTokens)}
+                  {formatCurrency(entry.estimatedSpend)}
                 </td>
                 <td className="py-4 px-4 text-right font-mono">
-                  {entry.totalSessions}
+                  {formatNumber(entry.totalSessions)}
                 </td>
                 <td className="py-4 px-4 text-right">
                   {entry.currentStreak > 0 ? (

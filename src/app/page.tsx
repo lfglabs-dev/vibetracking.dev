@@ -2,6 +2,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
 import { CTABox } from "@/components/home/CTABox";
+import { estimateApiSpendUsd } from "@/lib/pricing";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -15,7 +16,7 @@ interface UserData {
   anonymous_id: string | null;
 }
 
-interface LeaderboardEntry {
+interface LeaderboardRow {
   user_id: string;
   total_tokens: number;
   total_sessions: number;
@@ -24,8 +25,26 @@ interface LeaderboardEntry {
   users: UserData[];
 }
 
+interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  company: string | null;
+  isAnonymous: boolean;
+  totalTokens: number;
+  totalSessions: number;
+  currentStreak: number;
+  favoriteModel: string | null;
+  estimatedSpend: number;
+  profileUrl: string;
+}
+
+type LeaderboardSeed = Omit<LeaderboardEntry, "estimatedSpend">;
+
 // Mock data for testing the leaderboard UI
-const MOCK_LEADERBOARD = [
+const MOCK_LEADERBOARD: LeaderboardSeed[] = [
   {
     rank: 1,
     userId: "1",
@@ -35,6 +54,7 @@ const MOCK_LEADERBOARD = [
     company: "Anthropic",
     isAnonymous: false,
     totalTokens: 45_892_341,
+    favoriteModel: "claude-sonnet-4-20250514",
     totalSessions: 1247,
     currentStreak: 42,
     profileUrl: "/sarah_codes",
@@ -48,6 +68,7 @@ const MOCK_LEADERBOARD = [
     company: "Vercel",
     isAnonymous: false,
     totalTokens: 38_127_892,
+    favoriteModel: "claude-opus-4-20250514",
     totalSessions: 982,
     currentStreak: 28,
     profileUrl: "/alex_dev",
@@ -61,6 +82,7 @@ const MOCK_LEADERBOARD = [
     company: "Supabase",
     isAnonymous: false,
     totalTokens: 29_451_203,
+    favoriteModel: "claude-sonnet-4-20250514",
     totalSessions: 756,
     currentStreak: 35,
     profileUrl: "/maya_builds",
@@ -74,6 +96,7 @@ const MOCK_LEADERBOARD = [
     company: null,
     isAnonymous: true,
     totalTokens: 24_892_451,
+    favoriteModel: "claude-sonnet-4-20250514",
     totalSessions: 621,
     currentStreak: 14,
     profileUrl: "/u/abc123",
@@ -87,6 +110,7 @@ const MOCK_LEADERBOARD = [
     company: "OpenAI",
     isAnonymous: false,
     totalTokens: 21_347_892,
+    favoriteModel: "gpt-4o",
     totalSessions: 543,
     currentStreak: 21,
     profileUrl: "/kevin_hacks",
@@ -100,6 +124,7 @@ const MOCK_LEADERBOARD = [
     company: "Stripe",
     isAnonymous: false,
     totalTokens: 18_923_451,
+    favoriteModel: "claude-sonnet-4-20250514",
     totalSessions: 489,
     currentStreak: 19,
     profileUrl: "/emma_codes",
@@ -113,6 +138,7 @@ const MOCK_LEADERBOARD = [
     company: null,
     isAnonymous: true,
     totalTokens: 15_782_341,
+    favoriteModel: "claude-haiku-3-5-20241022",
     totalSessions: 412,
     currentStreak: 8,
     profileUrl: "/u/xyz789",
@@ -126,6 +152,7 @@ const MOCK_LEADERBOARD = [
     company: "Linear",
     isAnonymous: false,
     totalTokens: 12_451_892,
+    favoriteModel: "claude-sonnet-4-20250514",
     totalSessions: 356,
     currentStreak: 12,
     profileUrl: "/james_dev",
@@ -139,6 +166,7 @@ const MOCK_LEADERBOARD = [
     company: "Figma",
     isAnonymous: false,
     totalTokens: 9_823_451,
+    favoriteModel: "claude-sonnet-4-20250514",
     totalSessions: 287,
     currentStreak: 7,
     profileUrl: "/lisa_builds",
@@ -152,6 +180,7 @@ const MOCK_LEADERBOARD = [
     company: "Notion",
     isAnonymous: false,
     totalTokens: 7_451_234,
+    favoriteModel: "claude-opus-4-20250514",
     totalSessions: 198,
     currentStreak: 5,
     profileUrl: "/mike_codes",
@@ -197,8 +226,8 @@ export default async function Home() {
     .limit(50);
 
   // Transform leaderboard data
-  const dbEntries =
-    (leaderboard as unknown as LeaderboardEntry[])?.map((entry, index) => {
+  const dbEntries: LeaderboardSeed[] =
+    (leaderboard as unknown as LeaderboardRow[])?.map((entry, index) => {
       const userData = entry.users[0];
 
       return {
@@ -212,6 +241,7 @@ export default async function Home() {
         totalTokens: entry.total_tokens,
         totalSessions: entry.total_sessions,
         currentStreak: entry.current_streak_days,
+        favoriteModel: entry.favorite_model,
         profileUrl: userData.is_anonymous
           ? `/u/${userData.anonymous_id}`
           : `/@${userData.username}`,
@@ -219,7 +249,22 @@ export default async function Home() {
     }) || [];
 
   // Use mock data if no real data exists
-  const entries = dbEntries.length > 0 ? dbEntries : MOCK_LEADERBOARD;
+  const rawEntries: LeaderboardSeed[] =
+    dbEntries.length > 0 ? dbEntries : MOCK_LEADERBOARD;
+
+  const entries: LeaderboardEntry[] = rawEntries
+    .map((entry) => ({
+      ...entry,
+      estimatedSpend: estimateApiSpendUsd({
+        model: entry.favoriteModel,
+        totalTokens: entry.totalTokens,
+      }),
+    }))
+    .sort((a, b) => b.estimatedSpend - a.estimatedSpend)
+    .map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }));
 
   return (
     <div className="min-h-screen py-8 px-4">
