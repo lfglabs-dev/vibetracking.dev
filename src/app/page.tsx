@@ -1,65 +1,265 @@
-import Image from "next/image";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
+import { CTABox } from "@/components/home/CTABox";
+import Link from "next/link";
 
-export default function Home() {
+interface UserData {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  company: string | null;
+  is_anonymous: boolean;
+  anonymous_id: string | null;
+}
+
+interface LeaderboardEntry {
+  user_id: string;
+  total_tokens: number;
+  total_sessions: number;
+  current_streak_days: number;
+  favorite_model: string | null;
+  users: UserData[];
+}
+
+// Mock data for testing the leaderboard UI
+const MOCK_LEADERBOARD = [
+  {
+    rank: 1,
+    userId: "1",
+    username: "sarah_codes",
+    displayName: "Sarah Chen",
+    avatarUrl: "https://i.pravatar.cc/150?u=sarah",
+    company: "Anthropic",
+    isAnonymous: false,
+    totalTokens: 45_892_341,
+    totalSessions: 1247,
+    currentStreak: 42,
+    profileUrl: "/sarah_codes",
+  },
+  {
+    rank: 2,
+    userId: "2",
+    username: "alex_dev",
+    displayName: "Alex Rivera",
+    avatarUrl: "https://i.pravatar.cc/150?u=alex",
+    company: "Vercel",
+    isAnonymous: false,
+    totalTokens: 38_127_892,
+    totalSessions: 982,
+    currentStreak: 28,
+    profileUrl: "/alex_dev",
+  },
+  {
+    rank: 3,
+    userId: "3",
+    username: "maya_builds",
+    displayName: "Maya Johnson",
+    avatarUrl: "https://i.pravatar.cc/150?u=maya",
+    company: "Supabase",
+    isAnonymous: false,
+    totalTokens: 29_451_203,
+    totalSessions: 756,
+    currentStreak: 35,
+    profileUrl: "/maya_builds",
+  },
+  {
+    rank: 4,
+    userId: "4",
+    username: "anon_abc123",
+    displayName: null,
+    avatarUrl: null,
+    company: null,
+    isAnonymous: true,
+    totalTokens: 24_892_451,
+    totalSessions: 621,
+    currentStreak: 14,
+    profileUrl: "/u/abc123",
+  },
+  {
+    rank: 5,
+    userId: "5",
+    username: "kevin_hacks",
+    displayName: "Kevin Park",
+    avatarUrl: "https://i.pravatar.cc/150?u=kevin",
+    company: "OpenAI",
+    isAnonymous: false,
+    totalTokens: 21_347_892,
+    totalSessions: 543,
+    currentStreak: 21,
+    profileUrl: "/kevin_hacks",
+  },
+  {
+    rank: 6,
+    userId: "6",
+    username: "emma_codes",
+    displayName: "Emma Wilson",
+    avatarUrl: "https://i.pravatar.cc/150?u=emma",
+    company: "Stripe",
+    isAnonymous: false,
+    totalTokens: 18_923_451,
+    totalSessions: 489,
+    currentStreak: 19,
+    profileUrl: "/emma_codes",
+  },
+  {
+    rank: 7,
+    userId: "7",
+    username: "anon_xyz789",
+    displayName: "Cursor Lover",
+    avatarUrl: null,
+    company: null,
+    isAnonymous: true,
+    totalTokens: 15_782_341,
+    totalSessions: 412,
+    currentStreak: 8,
+    profileUrl: "/u/xyz789",
+  },
+  {
+    rank: 8,
+    userId: "8",
+    username: "james_dev",
+    displayName: "James Thompson",
+    avatarUrl: "https://i.pravatar.cc/150?u=james",
+    company: "Linear",
+    isAnonymous: false,
+    totalTokens: 12_451_892,
+    totalSessions: 356,
+    currentStreak: 12,
+    profileUrl: "/james_dev",
+  },
+  {
+    rank: 9,
+    userId: "9",
+    username: "lisa_builds",
+    displayName: "Lisa Wang",
+    avatarUrl: "https://i.pravatar.cc/150?u=lisa",
+    company: "Figma",
+    isAnonymous: false,
+    totalTokens: 9_823_451,
+    totalSessions: 287,
+    currentStreak: 7,
+    profileUrl: "/lisa_builds",
+  },
+  {
+    rank: 10,
+    userId: "10",
+    username: "mike_codes",
+    displayName: "Mike Brown",
+    avatarUrl: "https://i.pravatar.cc/150?u=mike",
+    company: "Notion",
+    isAnonymous: false,
+    totalTokens: 7_451_234,
+    totalSessions: 198,
+    currentStreak: 5,
+    profileUrl: "/mike_codes",
+  },
+];
+
+export default async function Home() {
+  const authSupabase = await createServerClient();
+
+  // Check if user is logged in
+  const {
+    data: { user },
+  } = await authSupabase.auth.getUser();
+
+  // Use direct client for data fetch
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  // Fetch leaderboard
+  const { data: leaderboard } = await supabase
+    .from("user_stats")
+    .select(
+      `
+      user_id,
+      total_tokens,
+      total_sessions,
+      current_streak_days,
+      favorite_model,
+      users!inner (
+        id,
+        username,
+        display_name,
+        avatar_url,
+        company,
+        is_anonymous,
+        anonymous_id
+      )
+    `
+    )
+    .order("total_tokens", { ascending: false })
+    .limit(50);
+
+  // Transform leaderboard data
+  const dbEntries =
+    (leaderboard as unknown as LeaderboardEntry[])?.map((entry, index) => {
+      const userData = entry.users[0];
+
+      return {
+        rank: index + 1,
+        userId: userData.id,
+        username: userData.username,
+        displayName: userData.display_name,
+        avatarUrl: userData.avatar_url,
+        company: userData.company,
+        isAnonymous: userData.is_anonymous,
+        totalTokens: entry.total_tokens,
+        totalSessions: entry.total_sessions,
+        currentStreak: entry.current_streak_days,
+        profileUrl: userData.is_anonymous
+          ? `/u/${userData.anonymous_id}`
+          : `/@${userData.username}`,
+      };
+    }) || [];
+
+  // Use mock data if no real data exists
+  const entries = dbEntries.length > 0 ? dbEntries : MOCK_LEADERBOARD;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="min-h-screen py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <header className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-black">
+            <span className="text-[#FEA6CC]">vibe</span>
+            <span className="text-[#AAE7C0]">tracking</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+          {user ? (
+            <Link href={`/@${user.user_metadata?.user_name || user.id}`}>
+              <button className="btn-secondary flex items-center gap-2">
+                <span>My Profile</span>
+              </button>
+            </Link>
+          ) : null}
+        </header>
+
+        {/* Main content - Leaderboard + CTA */}
+        <div className="space-y-8">
+          {/* CTA Box */}
+          <CTABox />
+
+          {/* Leaderboard */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Leaderboard</h2>
+              <span className="tag tag-yellow">All Time</span>
+            </div>
+
+            <LeaderboardTable entries={entries} currentUserId={user?.id} />
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        {/* Footer */}
+        <footer className="mt-12 text-center text-sm text-[#232323]/50">
+          <p>Track your AI coding vibes with Claude Code, Codex, and Cursor</p>
+        </footer>
+      </div>
     </div>
   );
 }

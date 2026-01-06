@@ -1,26 +1,106 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Vibetracking color palette */
+  --color-pink: #FEA6CC;
+  --color-blue: #B3D8F5;
+  --color-green: #AAE7C0;
+  --color-yellow: #F0F69B;
+  --color-black: #232323;
+  --color-white: #FFFFFF;
+  --color-bg: #EEF0F2;
+
+  --background: var(--color-bg);
+  --foreground: var(--color-black);
+
+  /* Shadows */
+  --shadow-sm: 0px 2px 0px 0px var(--color-black);
+  --shadow-md: 0px 4px 0px 0px var(--color-black);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-rubik);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Custom colors for Tailwind */
+  --color-pink: #FEA6CC;
+  --color-blue: #B3D8F5;
+  --color-green: #AAE7C0;
+  --color-yellow: #F0F69B;
+  --color-charcoal: #232323;
+  --color-offwhite: #EEF0F2;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-rubik), sans-serif;
 }
+
+/* Vibetracking button styles */
+.btn-primary {
+  background-color: var(--color-green);
+  color: var(--color-black);
+  font-weight: 600;
+  padding: 14px 24px;
+  border-radius: 10px;
+  border: 1px solid var(--color-black);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 200ms ease-out;
+}
+
+.btn-primary:hover {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background-color: var(--color-white);
+  color: var(--color-black);
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--color-black);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: all 200ms ease-out;
+}
+
+.btn-secondary:hover {
+  transform: translateY(2px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Card styles */
+.card {
+  background-color: var(--color-white);
+  border-radius: 10px;
+  border: 1px solid var(--color-black);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+}
+
+/* Tag styles */
+.tag {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-black);
+}
+
+.tag-pink { background-color: var(--color-pink); }
+.tag-blue { background-color: var(--color-blue); }
+.tag-green { background-color: var(--color-green); }
+.tag-yellow { background-color: var(--color-yellow); }
