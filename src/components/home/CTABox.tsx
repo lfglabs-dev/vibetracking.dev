@@ -62,13 +62,6 @@ export function CTABox() {
         </button>
       </div>
 
-      {/* Sub-link */}
-      <p className="text-sm text-[#232323]/50">
-        Or check out the{" "}
-        <a href="https://github.com/vibetracking/cli" className="text-[#FEA6CC] hover:underline">
-          documentation
-        </a>
-      </p>
     </div>
   );
 }
