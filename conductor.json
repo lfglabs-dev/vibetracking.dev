@@ -1,1 +1,1 @@
-{  "scripts": {    "setup": "cp $CONDUCTOR_ROOT_PATH/.env.local .env.local && pnpm install",    "run": "pnpm run dev",    "archive": ""  }}
+{  "scripts": {    "setup": "bun install",    "run": "bun run dev",    "archive": ""  }}
