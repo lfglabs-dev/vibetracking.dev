@@ -17,10 +17,32 @@ import {
 } from "./parsers/cursor.js";
 import { aggregateToolData, getAggregatedStats } from "./aggregator.js";
 import { encodeData } from "./encoder.js";
-import { getSyncToken } from "./config.js";
-import type { ToolData } from "./types.js";
+import {
+  getSyncToken,
+  isAutosyncEnabled,
+  setAutosyncEnabled,
+  getHooksInstalledAt,
+  setHooksInstalledAt,
+  clearHooksInstalledAt,
+} from "./config.js";
+import {
+  installAllHooks,
+  removeAllHooks,
+  getHookStatus,
+} from "./hooks.js";
+import type { ToolData, ImportData } from "./types.js";
 
 const APP_URL = process.env.VIBETRACKING_URL || "https://vibetracking.dev";
+
+/**
+ * Result of scanning for tool data
+ */
+interface ScanResult {
+  aggregated: ImportData;
+  claudeFound: boolean;
+  codexFound: boolean;
+  cursorFound: boolean;
+}
 
 /**
  * Prompt user for input
@@ -97,6 +119,131 @@ async function handleCursorExport(): Promise<ToolData | null> {
   return null;
 }
 
+/**
+ * Scan for AI tool data and aggregate it
+ */
+async function scanAndAggregate(options?: {
+  quiet?: boolean;
+  skipCursor?: boolean;
+  tool?: string;
+}): Promise<ScanResult | null> {
+  const quiet = options?.quiet ?? false;
+  const skipCursor = options?.skipCursor ?? false;
+  const toolFilter = options?.tool;
+
+  // Parse data based on tool filter
+  let claudeData: ToolData | null = null;
+  let codexData: ToolData | null = null;
+  let cursorData: ToolData | null = null;
+
+  if (!toolFilter || toolFilter === "claude") {
+    claudeData = await parseClaudeCode();
+  }
+
+  if (!toolFilter || toolFilter === "codex") {
+    codexData = await parseCodex();
+  }
+
+  // Cursor handling (only in interactive mode, not quiet)
+  if (!skipCursor && !quiet && (!toolFilter || toolFilter === "cursor")) {
+    const cursorInstalled = isCursorInstalled();
+    if (cursorInstalled) {
+      cursorData = await handleCursorExport();
+    }
+  }
+
+  // Check if we found any data
+  const hasData = claudeData || codexData || cursorData;
+  if (!hasData) {
+    return null;
+  }
+
+  // Get sync token
+  const syncToken = await getSyncToken();
+
+  // Aggregate data
+  const aggregated = aggregateToolData([claudeData, codexData, cursorData]);
+
+  // Add sync token if exists
+  if (syncToken) {
+    aggregated.syncToken = syncToken;
+  }
+
+  return {
+    aggregated,
+    claudeFound: !!claudeData,
+    codexFound: !!codexData,
+    cursorFound: !!cursorData,
+  };
+}
+
+/**
+ * Sync data to the server
+ * Returns true on success, false on failure
+ */
+async function syncToServer(
+  aggregated: ImportData,
+  options?: { quiet?: boolean }
+): Promise<boolean> {
+  const quiet = options?.quiet ?? false;
+
+  // If we have a sync token, try to sync directly via API
+  if (aggregated.syncToken) {
+    try {
+      const response = await fetch(`${APP_URL}/api/sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${aggregated.syncToken}`,
+        },
+        body: JSON.stringify({ data: aggregated }),
+      });
+
+      if (response.ok) {
+        return true;
+      }
+
+      // If sync token is invalid, fall through to browser flow
+      if (response.status === 401) {
+        if (!quiet) {
+          console.log(chalk.yellow("  Sync token expired, opening browser..."));
+        }
+      }
+    } catch {
+      // Network error, fail silently in quiet mode
+      if (quiet) {
+        return false;
+      }
+    }
+  }
+
+  // Fall back to browser-based import (only in interactive mode)
+  if (!quiet) {
+    const encodedData = encodeData(aggregated);
+    const importUrl = `${APP_URL}/import#${encodedData}`;
+    await open(importUrl);
+    return true;
+  }
+
+  return false;
+}
+
+function formatNumber(num: number): string {
+  if (num >= 1_000_000_000) {
+    return (num / 1_000_000_000).toFixed(1) + "B";
+  }
+  if (num >= 1_000_000) {
+    return (num / 1_000_000).toFixed(1) + "M";
+  }
+  if (num >= 1_000) {
+    return (num / 1_000).toFixed(1) + "K";
+  }
+  return num.toString();
+}
+
+// ============================================
+// Main command (default action)
+// ============================================
 program
   .name("vibetracking")
   .description("Track your AI coding tool usage")
@@ -114,9 +261,6 @@ program
     const spinner = ora("Scanning for AI coding tool data...").start();
 
     try {
-      // Check for existing sync token
-      const syncToken = await getSyncToken();
-
       // Parse Claude Code and Codex in parallel
       const [claudeData, codexData] = await Promise.all([
         parseClaudeCode(),
@@ -162,6 +306,9 @@ program
         process.exit(1);
       }
 
+      // Check for existing sync token
+      const syncToken = await getSyncToken();
+
       // Aggregate data
       const aggregated = aggregateToolData([claudeData, codexData, cursorData]);
 
@@ -205,6 +352,34 @@ program
           `\n  If browser didn't open, visit:\n  ${chalk.underline(APP_URL + "/import")}\n`
         )
       );
+
+      // Auto-enable hooks on first run
+      const hooksInstalledAt = await getHooksInstalledAt();
+      if (!hooksInstalledAt) {
+        const result = await installAllHooks();
+
+        if (result.claudeCode || result.codex) {
+          await setHooksInstalledAt(new Date().toISOString());
+          await setAutosyncEnabled(true);
+
+          console.log(chalk.green("  ✓ Auto-sync enabled"));
+          console.log(
+            chalk.gray(
+              "    Your stats will sync automatically when you exit Claude Code or Codex."
+            )
+          );
+          console.log(chalk.gray("    To disable: vibetracking autosync off\n"));
+
+          // Note about Claude Code hook approval
+          if (result.claudeCode) {
+            console.log(
+              chalk.yellow(
+                "  Note: Run /hooks in Claude Code to approve the sync hook.\n"
+              )
+            );
+          }
+        }
+      }
     } catch (error) {
       spinner.fail("Error scanning data");
       console.error(chalk.red(`\n  ${error}\n`));
@@ -212,17 +387,155 @@ program
     }
   });
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000_000) {
-    return (num / 1_000_000_000).toFixed(1) + "B";
-  }
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1) + "M";
-  }
-  if (num >= 1_000) {
-    return (num / 1_000).toFixed(1) + "K";
-  }
-  return num.toString();
-}
+// ============================================
+// sync command
+// ============================================
+program
+  .command("sync")
+  .description("Sync your stats to vibetracking.dev")
+  .option("--quiet", "Suppress all output (for hooks)")
+  .option("--tool <tool>", "Only sync specific tool (claude, codex)")
+  .action(async (options: { quiet?: boolean; tool?: string }) => {
+    const quiet = options.quiet ?? false;
+
+    try {
+      // In quiet mode, check if autosync is enabled
+      if (quiet) {
+        const enabled = await isAutosyncEnabled();
+        if (!enabled) {
+          process.exit(0); // Silently exit if disabled
+        }
+      }
+
+      const result = await scanAndAggregate({
+        quiet,
+        skipCursor: true, // Always skip Cursor in sync command (requires interaction)
+        tool: options.tool,
+      });
+
+      if (!result) {
+        if (!quiet) {
+          console.log(chalk.red("No data found to sync"));
+        }
+        process.exit(quiet ? 0 : 1);
+      }
+
+      const success = await syncToServer(result.aggregated, { quiet });
+
+      if (!quiet) {
+        if (success) {
+          console.log(chalk.green("✓ Synced successfully"));
+        } else {
+          console.log(chalk.red("✗ Sync failed"));
+        }
+      }
+
+      process.exit(success ? 0 : 1);
+    } catch (error) {
+      if (!quiet) {
+        console.error(chalk.red(`Error: ${error}`));
+      }
+      process.exit(quiet ? 0 : 1);
+    }
+  });
+
+// ============================================
+// autosync command
+// ============================================
+program
+  .command("autosync <action>")
+  .description("Manage automatic syncing (on, off, status)")
+  .action(async (action: string) => {
+    switch (action.toLowerCase()) {
+      case "on": {
+        const result = await installAllHooks();
+        await setAutosyncEnabled(true);
+        await setHooksInstalledAt(new Date().toISOString());
+
+        console.log(chalk.green("\n  ✓ Auto-sync enabled\n"));
+
+        if (result.claudeCode) {
+          console.log(chalk.gray("    • Claude Code hook installed"));
+        }
+        if (result.codex) {
+          console.log(chalk.gray("    • Codex hook installed"));
+        }
+
+        console.log(
+          chalk.gray(
+            "\n  Your stats will sync automatically when you exit Claude Code or Codex.\n"
+          )
+        );
+
+        if (result.claudeCode) {
+          console.log(
+            chalk.yellow("  Note: Run /hooks in Claude Code to approve the sync hook.\n")
+          );
+        }
+        break;
+      }
+
+      case "off": {
+        await removeAllHooks();
+        await setAutosyncEnabled(false);
+        await clearHooksInstalledAt();
+
+        console.log(chalk.yellow("\n  ✗ Auto-sync disabled\n"));
+        console.log(chalk.gray("    Hooks have been removed."));
+        console.log(chalk.gray("    To re-enable: vibetracking autosync on\n"));
+        break;
+      }
+
+      case "status": {
+        const enabled = await isAutosyncEnabled();
+        const hookStatus = await getHookStatus();
+        const installedAt = await getHooksInstalledAt();
+
+        console.log(
+          chalk.bold(
+            "\n  " +
+              chalk.hex("#FEA6CC")("vibe") +
+              chalk.hex("#AAE7C0")("tracking") +
+              " auto-sync status\n"
+          )
+        );
+
+        if (enabled) {
+          console.log(chalk.green("  Status: Enabled"));
+        } else {
+          console.log(chalk.yellow("  Status: Disabled"));
+        }
+
+        console.log("");
+        console.log(chalk.bold("  Hooks:"));
+
+        if (hookStatus.claudeCode) {
+          console.log(chalk.green("    ✓ Claude Code (~/.claude/settings.json)"));
+        } else {
+          console.log(chalk.gray("    ○ Claude Code (not installed)"));
+        }
+
+        if (hookStatus.codex) {
+          console.log(chalk.green("    ✓ Codex (~/.codex/config.toml)"));
+        } else {
+          console.log(chalk.gray("    ○ Codex (not installed)"));
+        }
+
+        if (installedAt) {
+          console.log(
+            chalk.gray(`\n  Installed: ${new Date(installedAt).toLocaleString()}`)
+          );
+        }
+
+        console.log("");
+        break;
+      }
+
+      default:
+        console.log(chalk.red(`\n  Unknown action: ${action}`));
+        console.log(chalk.gray("  Valid actions: on, off, status\n"));
+        process.exit(1);
+    }
+  });
 
 program.parse();

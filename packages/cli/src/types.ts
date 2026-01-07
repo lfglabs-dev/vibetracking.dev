@@ -52,4 +52,6 @@ export interface Config {
   syncToken?: string;
   userId?: string;
   lastSyncedAt?: string;
+  autosyncEnabled?: boolean;
+  hooksInstalledAt?: string;
 }

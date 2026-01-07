@@ -31,12 +31,14 @@ interface CursorCSVRecord {
 
 /**
  * Generate the Cursor export URL with date range
+ * Cursor started tracking in this format around December 2025
  */
 export function getCursorExportUrl(): string {
   const now = Date.now();
-  const twoYearsAgo = now - 2 * 365 * 24 * 60 * 60 * 1000;
+  // December 1, 2025 - when Cursor started tracking in this format
+  const cursorTrackingStart = new Date("2025-12-01T00:00:00Z").getTime();
 
-  return `https://cursor.com/api/dashboard/export-usage-events-csv?startDate=${twoYearsAgo}&endDate=${now}&strategy=tokens`;
+  return `https://cursor.com/api/dashboard/export-usage-events-csv?startDate=${cursorTrackingStart}&endDate=${now}&strategy=tokens`;
 }
 
 /**
