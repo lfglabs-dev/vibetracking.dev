@@ -93,6 +93,7 @@ export const MOCK_STATS: Record<string, {
   current_streak_days: number;
   first_activity_date: string | null;
   last_activity_date: string | null;
+  user_percentile?: number;
 }> = {
   sarah_codes: {
     total_tokens: 45_892_341,
@@ -104,6 +105,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 42,
     first_activity_date: "2024-03-15",
     last_activity_date: "2026-01-06",
+    user_percentile: 1,
   },
   alex_dev: {
     total_tokens: 38_127_892,
@@ -115,6 +117,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 28,
     first_activity_date: "2024-05-22",
     last_activity_date: "2026-01-05",
+    user_percentile: 2,
   },
   maya_builds: {
     total_tokens: 29_451_203,
@@ -126,6 +129,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 35,
     first_activity_date: "2024-06-10",
     last_activity_date: "2026-01-06",
+    user_percentile: 5,
   },
   kevin_hacks: {
     total_tokens: 21_347_892,
@@ -137,6 +141,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 21,
     first_activity_date: "2024-08-01",
     last_activity_date: "2026-01-04",
+    user_percentile: 10,
   },
   emma_codes: {
     total_tokens: 18_923_451,
@@ -148,6 +153,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 19,
     first_activity_date: "2024-07-15",
     last_activity_date: "2026-01-06",
+    user_percentile: 15,
   },
   james_dev: {
     total_tokens: 12_451_892,
@@ -159,6 +165,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 12,
     first_activity_date: "2024-09-20",
     last_activity_date: "2026-01-05",
+    user_percentile: 25,
   },
   lisa_builds: {
     total_tokens: 9_823_451,
@@ -170,6 +177,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 7,
     first_activity_date: "2024-10-05",
     last_activity_date: "2026-01-03",
+    user_percentile: 35,
   },
   mike_codes: {
     total_tokens: 7_451_234,
@@ -181,6 +189,7 @@ export const MOCK_STATS: Record<string, {
     current_streak_days: 5,
     first_activity_date: "2024-11-01",
     last_activity_date: "2026-01-02",
+    user_percentile: 45,
   },
 };
 
@@ -224,4 +233,58 @@ export function generateMockDailyActivity(username: string) {
   }
 
   return activity;
+}
+
+// Generate mock token usage for model breakdown
+export function generateMockTokenUsage(username: string) {
+  const stats = MOCK_STATS[username];
+  if (!stats) return [];
+
+  const tokenUsage: {
+    date: string;
+    tool: string;
+    model: string;
+    input_tokens: number;
+    output_tokens: number;
+  }[] = [];
+
+  const today = new Date();
+  const daysToGenerate = 90; // Last 90 days for model breakdown
+  const tools = ["claude_code", "cursor", "codex"];
+  const models = [
+    "claude-sonnet-4-20250514",
+    "claude-opus-4-20250514",
+    "claude-haiku-3-5-20241022",
+    "gpt-4o",
+    "o3-mini",
+  ];
+
+  // Generate token usage for random days
+  for (let i = 0; i < daysToGenerate; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split("T")[0];
+
+    // Random chance of having activity that day
+    const activityChance = Math.min(stats.total_sessions / 500, 0.8);
+    if (Math.random() < activityChance) {
+      // Generate 1-3 model entries per day
+      const numModels = Math.floor(Math.random() * 3) + 1;
+      for (let j = 0; j < numModels; j++) {
+        const tool = tools[Math.floor(Math.random() * tools.length)];
+        const model = models[Math.floor(Math.random() * models.length)];
+        const totalTokens = Math.floor(Math.random() * 50000) + 5000;
+
+        tokenUsage.push({
+          date: dateStr,
+          tool,
+          model,
+          input_tokens: Math.floor(totalTokens * 0.7),
+          output_tokens: Math.floor(totalTokens * 0.3),
+        });
+      }
+    }
+  }
+
+  return tokenUsage;
 }

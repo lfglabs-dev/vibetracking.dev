@@ -112,3 +112,29 @@ body {
 .tag-yellow {
   background-color: var(--color-yellow);
 }
+
+/* Sticker bounce-in animation */
+@keyframes bounce-in {
+  0% {
+    transform: scale(0) rotate(var(--tw-rotate, 0deg));
+    opacity: 0;
+  }
+  50% {
+    transform: scale(calc(var(--sticker-scale, 1) * 1.15)) rotate(var(--tw-rotate, 0deg));
+    opacity: 1;
+  }
+  70% {
+    transform: scale(calc(var(--sticker-scale, 1) * 0.9)) rotate(var(--tw-rotate, 0deg));
+  }
+  85% {
+    transform: scale(calc(var(--sticker-scale, 1) * 1.05)) rotate(var(--tw-rotate, 0deg));
+  }
+  100% {
+    transform: scale(var(--sticker-scale, 1)) rotate(var(--tw-rotate, 0deg));
+    opacity: 1;
+  }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}

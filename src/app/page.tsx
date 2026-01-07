@@ -1,209 +1,210 @@
-import { createClient as createServerClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
-import { LeaderboardTable } from "@/components/leaderboard/LeaderboardTable";
-import { CTABox } from "@/components/home/CTABox";
-import { estimateApiSpendUsd } from "@/lib/pricing";
-import Link from "next/link";
-import Image from "next/image";
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
+import { CTABox } from '@/components/home/CTABox'
+import { HomeStickers } from '@/components/home/HomeStickers'
+import { estimateApiSpendUsd } from '@/lib/pricing'
+import { Logo } from '@/components/shared/Logo'
+import Link from 'next/link'
 
 interface UserData {
-  id: string;
-  username: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  company: string | null;
-  is_anonymous: boolean;
-  anonymous_id: string | null;
+  id: string
+  username: string
+  display_name: string | null
+  avatar_url: string | null
+  company: string | null
+  is_anonymous: boolean
+  anonymous_id: string | null
 }
 
 interface LeaderboardRow {
-  user_id: string;
-  total_tokens: number;
-  total_sessions: number;
-  current_streak_days: number;
-  favorite_model: string | null;
-  users: UserData[];
+  user_id: string
+  total_tokens: number
+  total_sessions: number
+  current_streak_days: number
+  favorite_model: string | null
+  users: UserData[]
 }
 
 interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  username: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  company: string | null;
-  isAnonymous: boolean;
-  totalTokens: number;
-  totalSessions: number;
-  currentStreak: number;
-  favoriteModel: string | null;
-  estimatedSpend: number;
-  profileUrl: string;
+  rank: number
+  userId: string
+  username: string
+  displayName: string | null
+  avatarUrl: string | null
+  company: string | null
+  isAnonymous: boolean
+  totalTokens: number
+  totalSessions: number
+  currentStreak: number
+  favoriteModel: string | null
+  estimatedSpend: number
+  profileUrl: string
 }
 
-type LeaderboardSeed = Omit<LeaderboardEntry, "estimatedSpend">;
+type LeaderboardSeed = Omit<LeaderboardEntry, 'estimatedSpend'>
 
 // Mock data for testing the leaderboard UI
 const MOCK_LEADERBOARD: LeaderboardSeed[] = [
   {
     rank: 1,
-    userId: "1",
-    username: "sarah_codes",
-    displayName: "Sarah Chen",
-    avatarUrl: "https://i.pravatar.cc/150?u=sarah",
-    company: "Anthropic",
+    userId: '1',
+    username: 'sarah_codes',
+    displayName: 'Sarah Chen',
+    avatarUrl: 'https://i.pravatar.cc/150?u=sarah',
+    company: 'Anthropic',
     isAnonymous: false,
     totalTokens: 45_892_341,
-    favoriteModel: "claude-sonnet-4-20250514",
+    favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 1247,
     currentStreak: 42,
-    profileUrl: "/sarah_codes",
+    profileUrl: '/sarah_codes',
   },
   {
     rank: 2,
-    userId: "2",
-    username: "alex_dev",
-    displayName: "Alex Rivera",
-    avatarUrl: "https://i.pravatar.cc/150?u=alex",
-    company: "Vercel",
+    userId: '2',
+    username: 'alex_dev',
+    displayName: 'Alex Rivera',
+    avatarUrl: 'https://i.pravatar.cc/150?u=alex',
+    company: 'Vercel',
     isAnonymous: false,
     totalTokens: 38_127_892,
-    favoriteModel: "claude-opus-4-20250514",
+    favoriteModel: 'claude-opus-4-20250514',
     totalSessions: 982,
     currentStreak: 28,
-    profileUrl: "/alex_dev",
+    profileUrl: '/alex_dev',
   },
   {
     rank: 3,
-    userId: "3",
-    username: "maya_builds",
-    displayName: "Maya Johnson",
-    avatarUrl: "https://i.pravatar.cc/150?u=maya",
-    company: "Supabase",
+    userId: '3',
+    username: 'maya_builds',
+    displayName: 'Maya Johnson',
+    avatarUrl: 'https://i.pravatar.cc/150?u=maya',
+    company: 'Supabase',
     isAnonymous: false,
     totalTokens: 29_451_203,
-    favoriteModel: "claude-sonnet-4-20250514",
+    favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 756,
     currentStreak: 35,
-    profileUrl: "/maya_builds",
+    profileUrl: '/maya_builds',
   },
   {
     rank: 4,
-    userId: "4",
-    username: "anon_abc123",
+    userId: '4',
+    username: 'anon_abc123',
     displayName: null,
     avatarUrl: null,
     company: null,
     isAnonymous: true,
     totalTokens: 24_892_451,
-    favoriteModel: "claude-sonnet-4-20250514",
+    favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 621,
     currentStreak: 14,
-    profileUrl: "/u/abc123",
+    profileUrl: '/u/abc123',
   },
   {
     rank: 5,
-    userId: "5",
-    username: "kevin_hacks",
-    displayName: "Kevin Park",
-    avatarUrl: "https://i.pravatar.cc/150?u=kevin",
-    company: "OpenAI",
+    userId: '5',
+    username: 'kevin_hacks',
+    displayName: 'Kevin Park',
+    avatarUrl: 'https://i.pravatar.cc/150?u=kevin',
+    company: 'OpenAI',
     isAnonymous: false,
     totalTokens: 21_347_892,
-    favoriteModel: "gpt-4o",
+    favoriteModel: 'gpt-4o',
     totalSessions: 543,
     currentStreak: 21,
-    profileUrl: "/kevin_hacks",
+    profileUrl: '/kevin_hacks',
   },
   {
     rank: 6,
-    userId: "6",
-    username: "emma_codes",
-    displayName: "Emma Wilson",
-    avatarUrl: "https://i.pravatar.cc/150?u=emma",
-    company: "Stripe",
+    userId: '6',
+    username: 'emma_codes',
+    displayName: 'Emma Wilson',
+    avatarUrl: 'https://i.pravatar.cc/150?u=emma',
+    company: 'Stripe',
     isAnonymous: false,
     totalTokens: 18_923_451,
-    favoriteModel: "claude-sonnet-4-20250514",
+    favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 489,
     currentStreak: 19,
-    profileUrl: "/emma_codes",
+    profileUrl: '/emma_codes',
   },
   {
     rank: 7,
-    userId: "7",
-    username: "anon_xyz789",
-    displayName: "Cursor Lover",
+    userId: '7',
+    username: 'anon_xyz789',
+    displayName: 'Cursor Lover',
     avatarUrl: null,
     company: null,
     isAnonymous: true,
     totalTokens: 15_782_341,
-    favoriteModel: "claude-haiku-3-5-20241022",
+    favoriteModel: 'claude-haiku-3-5-20241022',
     totalSessions: 412,
     currentStreak: 8,
-    profileUrl: "/u/xyz789",
+    profileUrl: '/u/xyz789',
   },
   {
     rank: 8,
-    userId: "8",
-    username: "james_dev",
-    displayName: "James Thompson",
-    avatarUrl: "https://i.pravatar.cc/150?u=james",
-    company: "Linear",
+    userId: '8',
+    username: 'james_dev',
+    displayName: 'James Thompson',
+    avatarUrl: 'https://i.pravatar.cc/150?u=james',
+    company: 'Linear',
     isAnonymous: false,
     totalTokens: 12_451_892,
-    favoriteModel: "claude-sonnet-4-20250514",
+    favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 356,
     currentStreak: 12,
-    profileUrl: "/james_dev",
+    profileUrl: '/james_dev',
   },
   {
     rank: 9,
-    userId: "9",
-    username: "lisa_builds",
-    displayName: "Lisa Wang",
-    avatarUrl: "https://i.pravatar.cc/150?u=lisa",
-    company: "Figma",
+    userId: '9',
+    username: 'lisa_builds',
+    displayName: 'Lisa Wang',
+    avatarUrl: 'https://i.pravatar.cc/150?u=lisa',
+    company: 'Figma',
     isAnonymous: false,
     totalTokens: 9_823_451,
-    favoriteModel: "claude-sonnet-4-20250514",
+    favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 287,
     currentStreak: 7,
-    profileUrl: "/lisa_builds",
+    profileUrl: '/lisa_builds',
   },
   {
     rank: 10,
-    userId: "10",
-    username: "mike_codes",
-    displayName: "Mike Brown",
-    avatarUrl: "https://i.pravatar.cc/150?u=mike",
-    company: "Notion",
+    userId: '10',
+    username: 'mike_codes',
+    displayName: 'Mike Brown',
+    avatarUrl: 'https://i.pravatar.cc/150?u=mike',
+    company: 'Notion',
     isAnonymous: false,
     totalTokens: 7_451_234,
-    favoriteModel: "claude-opus-4-20250514",
+    favoriteModel: 'claude-opus-4-20250514',
     totalSessions: 198,
     currentStreak: 5,
-    profileUrl: "/mike_codes",
+    profileUrl: '/mike_codes',
   },
-];
+]
 
 export default async function Home() {
-  const authSupabase = await createServerClient();
+  const authSupabase = await createServerClient()
 
   // Check if user is logged in
   const {
     data: { user },
-  } = await authSupabase.auth.getUser();
+  } = await authSupabase.auth.getUser()
 
   // Use direct client for data fetch
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  )
 
   // Fetch leaderboard
   const { data: leaderboard } = await supabase
-    .from("user_stats")
+    .from('user_stats')
     .select(
       `
       user_id,
@@ -222,13 +223,15 @@ export default async function Home() {
       )
     `
     )
-    .order("total_tokens", { ascending: false })
-    .limit(50);
+    .order('total_tokens', { ascending: false })
+    .limit(50)
 
   // Transform leaderboard data
   const dbEntries: LeaderboardSeed[] =
     (leaderboard as unknown as LeaderboardRow[])?.map((entry, index) => {
-      const userData = entry.users[0];
+      // Supabase !inner join returns a single object, not an array
+      const userData = Array.isArray(entry.users) ? entry.users[0] : entry.users
+      if (!userData) return null
 
       return {
         rank: index + 1,
@@ -245,12 +248,12 @@ export default async function Home() {
         profileUrl: userData.is_anonymous
           ? `/u/${userData.anonymous_id}`
           : `/@${userData.username}`,
-      };
-    }) || [];
+      }
+    }).filter((entry): entry is LeaderboardSeed => entry !== null) || []
 
   // Use mock data if no real data exists
   const rawEntries: LeaderboardSeed[] =
-    dbEntries.length > 0 ? dbEntries : MOCK_LEADERBOARD;
+    dbEntries.length > 0 ? dbEntries : MOCK_LEADERBOARD
 
   const entries: LeaderboardEntry[] = rawEntries
     .map((entry) => ({
@@ -264,112 +267,50 @@ export default async function Home() {
     .map((entry, index) => ({
       ...entry,
       rank: index + 1,
-    }));
+    }))
 
   return (
     <div className="min-h-screen py-8 px-4">
       <div className="max-w-4xl mx-auto relative">
-        <div className="pointer-events-none select-none absolute inset-0 z-0 overflow-visible" aria-hidden="true">
-          {/* Hero section stickers - more prominent, flanking the title */}
-          <Image
-            src="/stickers/1.png"
-            alt=""
-            width={180}
-            height={180}
-            className="absolute top-[20px] -left-16 md:-left-28 lg:-left-36 w-28 md:w-40 lg:w-48 rotate-[-12deg] hidden sm:block drop-shadow-lg"
-          />
-          <Image
-            src="/stickers/2.png"
-            alt=""
-            width={180}
-            height={180}
-            className="absolute top-[10px] -right-16 md:-right-28 lg:-right-36 w-28 md:w-40 lg:w-48 rotate-[15deg] hidden sm:block drop-shadow-lg"
-          />
-          {/* Second row of hero stickers - near description */}
-          <Image
-            src="/stickers/3.png"
-            alt=""
-            width={160}
-            height={160}
-            className="absolute top-[160px] -left-12 md:-left-24 lg:-left-32 w-24 md:w-36 lg:w-44 rotate-[8deg] hidden sm:block drop-shadow-lg"
-          />
-          <Image
-            src="/stickers/4.png"
-            alt=""
-            width={160}
-            height={160}
-            className="absolute top-[180px] -right-12 md:-right-24 lg:-right-32 w-24 md:w-36 lg:w-44 rotate-[-10deg] hidden sm:block drop-shadow-lg"
-          />
-          {/* Leaderboard section stickers */}
-          <Image
-            src="/stickers/5.png"
-            alt=""
-            width={140}
-            height={140}
-            className="absolute top-[480px] -left-16 md:-left-24 w-24 md:w-32 rotate-[-6deg] hidden md:block drop-shadow-lg"
-          />
-          <Image
-            src="/stickers/6.png"
-            alt=""
-            width={140}
-            height={140}
-            className="absolute top-[480px] -right-16 md:-right-24 w-24 md:w-32 rotate-[14deg] hidden md:block drop-shadow-lg"
-          />
-          {/* Additional stickers lower on leaderboard */}
-          <Image
-            src="/stickers/1.png"
-            alt=""
-            width={120}
-            height={120}
-            className="absolute top-[720px] -left-14 md:-left-20 w-20 md:w-28 rotate-[12deg] hidden lg:block drop-shadow-lg opacity-90"
-          />
-          <Image
-            src="/stickers/2.png"
-            alt=""
-            width={120}
-            height={120}
-            className="absolute top-[750px] -right-14 md:-right-20 w-20 md:w-28 rotate-[-8deg] hidden lg:block drop-shadow-lg opacity-90"
-          />
-        </div>
+        <HomeStickers leaderboardCount={entries.length} />
         <div className="relative z-10">
-        {/* Header */}
-        <header className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-black">
-            <span className="text-[#E85A9A]">vibe</span>
-            <span className="text-[#3DB06B]">tracking</span>
-          </h1>
+          {/* Header */}
+          <header className="flex items-center justify-between mb-8">
+            <Logo />
 
-          {user ? (
-            <Link href={`/@${user.user_metadata?.user_name || user.id}`}>
-              <button className="btn-secondary flex items-center gap-2">
-                <span>My Profile</span>
-              </button>
-            </Link>
-          ) : null}
-        </header>
+            {user ? (
+              <Link href={`/@${user.user_metadata?.user_name || user.id}`}>
+                <button className="btn-secondary flex items-center gap-2">
+                  <span>My Profile</span>
+                </button>
+              </Link>
+            ) : null}
+          </header>
 
-        {/* Main content - Leaderboard + CTA */}
-        <div className="space-y-8">
-          {/* CTA Box */}
-          <CTABox />
+          {/* Main content - Leaderboard + CTA */}
+          <div className="space-y-8">
+            {/* CTA Box */}
+            <CTABox />
 
-          {/* Leaderboard */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Leaderboard</h2>
-              <span className="tag tag-yellow">All Time</span>
+            {/* Leaderboard */}
+            <div className="card">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Leaderboard</h2>
+                <span className="tag tag-yellow">All Time</span>
+              </div>
+
+              <LeaderboardTable entries={entries} currentUserId={user?.id} />
             </div>
-
-            <LeaderboardTable entries={entries} currentUserId={user?.id} />
           </div>
-        </div>
 
-        {/* Footer */}
-        <footer className="mt-12 text-center text-sm text-[#232323]/50">
-          <p>Track your AI coding vibes with Claude Code, Codex, and Cursor</p>
-        </footer>
-      </div>
+          {/* Footer */}
+          <footer className="mt-12 text-center text-sm text-[#232323]/50">
+            <p>
+              Track your AI coding vibes with Claude Code, Codex, and Cursor
+            </p>
+          </footer>
+        </div>
       </div>
     </div>
-  );
+  )
 }
