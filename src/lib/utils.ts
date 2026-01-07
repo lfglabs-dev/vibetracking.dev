@@ -151,21 +151,20 @@ export interface ImportData {
 // Fun fact metrics calculation utilities
 // Constants for calculations - REVISED for realistic estimates
 //
-// Key insight: Not all tokens are productive code output
-// - Input tokens (~70%): Your prompts, code context → NOT productive output
-// - Output tokens (~30%): AI responses, but mostly explanations (~65%) not code (~35%)
-// - Realistic code output: ~10.5% of total tokens (30% output × 35% is actual code)
+// Key insight: Total tokens include massive cache read/creation tokens
+// - Cache tokens can be 100x larger than actual input/output tokens
+// - Only ~0.2-0.5% of total tokens are actual new output
+// - Of that output, only ~30% is actual code (rest is explanations)
+// - Effective code fraction: ~0.1-0.15% of total tokens
 //
-const OUTPUT_TOKEN_FRACTION = 0.30; // ~30% of tokens are output
-const CODE_FRACTION_OF_OUTPUT = 0.35; // ~35% of output is actual code
-const EFFECTIVE_CODE_FRACTION = OUTPUT_TOKEN_FRACTION * CODE_FRACTION_OF_OUTPUT; // ~10.5%
+const EFFECTIVE_CODE_FRACTION = 0.001; // ~0.1% of total tokens → actual code lines
 
 const AVERAGE_YEARLY_DEV_SALARY = 130_000; // USD
-const TOKENS_PER_LINE_OF_CODE = 8; // More realistic: avg line ~32 chars = ~8 tokens
+const TOKENS_PER_LINE_OF_CODE = 15; // Conservative: avg line ~60 chars = ~15 tokens
 // Conservative estimate: good devs write ~50-100 meaningful lines/day pre-AI
-const AVERAGE_HUMAN_LINES_PER_DAY = 50;
-// Estimate: 1000 code tokens saves ~30 min of work (writing, debugging, testing)
-const HOURS_SAVED_PER_1000_CODE_TOKENS = 0.5;
+const AVERAGE_HUMAN_LINES_PER_DAY = 75;
+// Estimate: 1000 code tokens saves ~10 min of work (writing, debugging, testing)
+const HOURS_SAVED_PER_1000_CODE_TOKENS = 0.15;
 
 export interface FunFactMetrics {
   salarySaved: number; // Amount saved in USD
@@ -175,11 +174,11 @@ export interface FunFactMetrics {
 
 /**
  * Calculate salary savings based on estimated API spend
- * Logic: Only count effective code tokens (~10.5% of total), then estimate hours saved
+ * Logic: Only count effective code tokens (~0.1% of total), then estimate hours saved
  * Savings = value of hours saved - API cost
  */
 export function calculateSalarySaved(totalTokens: number, estimatedApiSpend: number): number {
-  // Only ~10.5% of tokens represent actual code output
+  // Only ~0.1% of tokens represent actual code output (due to cache inflation)
   const effectiveCodeTokens = totalTokens * EFFECTIVE_CODE_FRACTION;
 
   // Estimate hours saved (1000 code tokens ≈ 30 min saved)
@@ -197,7 +196,7 @@ export function calculateSalarySaved(totalTokens: number, estimatedApiSpend: num
 
 /**
  * Calculate equivalent lines of code
- * Logic: Only count effective code tokens (~10.5%), then convert to lines (~8 tokens per line)
+ * Logic: Only count effective code tokens (~0.1%), then convert to lines (~15 tokens per line)
  */
 export function calculateLinesOfCode(totalTokens: number): number {
   const effectiveCodeTokens = totalTokens * EFFECTIVE_CODE_FRACTION;
@@ -212,7 +211,7 @@ export function calculateLinesOfCode(totalTokens: number): number {
 export function calculateProductivityBoostPercent(totalTokens: number, activeDays: number): number {
   if (activeDays === 0) return 0;
 
-  // Only count effective code tokens (~10.5%)
+  // Only count effective code tokens (~0.1%)
   const effectiveCodeTokens = totalTokens * EFFECTIVE_CODE_FRACTION;
 
   // Calculate AI-assisted lines per day

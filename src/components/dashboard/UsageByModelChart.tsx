@@ -28,16 +28,16 @@ interface UsageByModelChartProps {
   unit: DisplayUnit;
 }
 
-// Color palette for models
+// Color palette for models - matching KPI cards design system
 const MODEL_COLORS = [
-  "#FEA6CC", // Pink
-  "#AAE7C0", // Green
-  "#B3D8F5", // Blue
-  "#F0F69B", // Yellow
-  "#D4A5FF", // Purple
-  "#FFB366", // Orange
-  "#85E0E0", // Cyan
-  "#FF9999", // Coral
+  "#D63384", // Pink (matches Total Tokens KPI)
+  "#198754", // Green (matches Favorite Model KPI)
+  "#0D6EFD", // Blue (matches Sessions KPI)
+  "#CC9A06", // Yellow (matches Active Days KPI)
+  "#6F42C1", // Purple
+  "#FD7E14", // Orange
+  "#20C997", // Teal
+  "#DC3545", // Red
 ];
 
 // Determine granularity based on date range

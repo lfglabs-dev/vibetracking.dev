@@ -25,11 +25,11 @@ interface UsageByToolChartProps {
   unit: DisplayUnit;
 }
 
-// Tool colors matching the app's design system
+// Tool colors matching the KPI cards design system
 const TOOL_COLORS: Record<string, string> = {
-  claude_code: "#FEA6CC", // Pink
-  codex: "#AAE7C0", // Green
-  cursor: "#B3D8F5", // Blue
+  claude_code: "#D63384", // Pink (matches Total Tokens KPI)
+  codex: "#198754", // Green (matches Favorite Model KPI)
+  cursor: "#0D6EFD", // Blue (matches Sessions KPI)
 };
 
 const TOOL_LABELS: Record<string, string> = {

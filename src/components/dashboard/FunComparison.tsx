@@ -52,7 +52,7 @@ export function FunComparison({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Salary Saved */}
           <div className="text-center">
-            <p className="text-2xl font-black text-[#E85A9A]">
+            <p className="text-2xl font-black text-[#D63384]">
               {formatSalary(metrics.salarySaved)}
             </p>
             <p className="text-sm text-[#232323]/60">
@@ -62,7 +62,7 @@ export function FunComparison({
 
           {/* Lines of Code */}
           <div className="text-center">
-            <p className="text-2xl font-black text-[#3DB06B]">
+            <p className="text-2xl font-black text-[#198754]">
               {formatLines(metrics.linesOfCode)}
             </p>
             <p className="text-sm text-[#232323]/60">
@@ -72,7 +72,7 @@ export function FunComparison({
 
           {/* Productivity Boost */}
           <div className="text-center">
-            <p className="text-2xl font-black text-[#5B8DEF]">
+            <p className="text-2xl font-black text-[#0D6EFD]">
               +{formatPercent(metrics.productivityBoostPercent)}%
             </p>
             <p className="text-sm text-[#232323]/60">

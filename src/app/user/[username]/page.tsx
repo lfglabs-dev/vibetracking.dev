@@ -154,13 +154,15 @@ export default async function UserProfilePage({ params }: PageParams) {
     .order("date", { ascending: true });
 
   // Calculate user percentile based on estimated spend
+  // "Top X%" means you're in the top X% of users by API spend
+  // E.g., "Top 5%" means you're better than 95% of users
   let userPercentile = 50; // Default
   if (stats) {
     const { data: allUserStats } = await supabase
       .from("user_stats")
       .select("user_id, total_tokens, favorite_model");
 
-    if (allUserStats && allUserStats.length > 0) {
+    if (allUserStats && allUserStats.length > 1) {
       const userSpend = estimateApiSpendUsd({
         model: stats.favorite_model,
         totalTokens: stats.total_tokens,
@@ -171,8 +173,15 @@ export default async function UserProfilePage({ params }: PageParams) {
           totalTokens: u.total_tokens,
         })
       );
+      // Count users with higher spend (higher rank)
       const usersAbove = allSpends.filter((spend) => spend > userSpend).length;
-      userPercentile = Math.max(1, Math.round((1 - usersAbove / allUserStats.length) * 100));
+      // Your rank = usersAbove + 1 (1-indexed)
+      // Percentile = (rank / total) * 100
+      // If 0 users above, you're rank 1 = top (1/N * 100)%
+      userPercentile = Math.max(1, Math.ceil(((usersAbove + 1) / allUserStats.length) * 100));
+    } else {
+      // Only 1 user in the system = you're #1
+      userPercentile = 1;
     }
   }
 
