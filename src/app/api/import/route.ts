@@ -6,7 +6,7 @@ import type { ImportData } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {
-    const data: ImportData & { anonymousId?: string } = await request.json();
+    const data: ImportData & { company?: string } = await request.json();
 
     // Get authenticated user
     const supabase = await createServerClient();
@@ -21,44 +21,32 @@ export async function POST(request: Request) {
       data: { user: authUser },
     } = await supabase.auth.getUser();
 
-    let userId: string;
-    let profileUrl: string;
-
-    if (authUser) {
-      // Authenticated user
-      userId = authUser.id;
-
-      // Get username for profile URL
-      const { data: userProfile } = await serviceSupabase
-        .from("users")
-        .select("username")
-        .eq("id", userId)
-        .single();
-
-      profileUrl = `/@${userProfile?.username || authUser.id}`;
-    } else if (data.anonymousId) {
-      // Anonymous user
-      const { data: anonUser, error } = await serviceSupabase
-        .from("users")
-        .select("id, anonymous_id")
-        .eq("anonymous_id", data.anonymousId)
-        .single();
-
-      if (error || !anonUser) {
-        return NextResponse.json(
-          { message: "Anonymous user not found" },
-          { status: 404 }
-        );
-      }
-
-      userId = anonUser.id;
-      profileUrl = `/u/${data.anonymousId}`;
-    } else {
+    // GitHub authentication required
+    if (!authUser) {
       return NextResponse.json(
-        { message: "Authentication required" },
+        { message: "GitHub authentication required" },
         { status: 401 }
       );
     }
+
+    const userId = authUser.id;
+
+    // Get username for profile URL and update company if provided
+    const { data: userProfile } = await serviceSupabase
+      .from("users")
+      .select("username")
+      .eq("id", userId)
+      .single();
+
+    // Update company if provided
+    if (data.company) {
+      await serviceSupabase
+        .from("users")
+        .update({ company: data.company })
+        .eq("id", userId);
+    }
+
+    const profileUrl = `/@${userProfile?.username || authUser.id}`;
 
     // Process import data
     const tools = Object.values(data.tools).filter(Boolean);

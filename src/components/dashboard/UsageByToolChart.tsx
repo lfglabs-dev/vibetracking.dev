@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   LineChart,
   Line,
@@ -24,6 +25,8 @@ interface UsageByToolChartProps {
   dailyActivity: DailyActivity[];
   unit: DisplayUnit;
 }
+
+type TimeRange = "7D" | "30D" | "1Y";
 
 // Tool colors matching the KPI cards design system
 const TOOL_COLORS: Record<string, string> = {
@@ -86,18 +89,44 @@ function aggregateData(
   return result.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// Filter data by time range
+function filterByTimeRange(data: DailyActivity[], range: TimeRange): DailyActivity[] {
+  const now = new Date();
+  let cutoffDate: Date;
+
+  switch (range) {
+    case "7D":
+      cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    case "30D":
+      cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+    case "1Y":
+      cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      break;
+  }
+
+  const cutoffStr = cutoffDate.toISOString().split("T")[0];
+  return data.filter((d) => d.date >= cutoffStr);
+}
+
 export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps) {
+  const [timeRange, setTimeRange] = useState<TimeRange>("30D");
+
   if (!dailyActivity || dailyActivity.length === 0) {
     return null;
   }
 
+  // Filter data by selected time range
+  const filteredData = filterByTimeRange(dailyActivity, timeRange);
+
   // Get unique dates to determine granularity
-  const uniqueDates = new Set(dailyActivity.map((d) => d.date));
+  const uniqueDates = new Set(filteredData.map((d) => d.date));
   const daySpan = uniqueDates.size;
   const granularity = getGranularity(daySpan);
 
   // Aggregate data based on granularity
-  const aggregatedData = aggregateData(dailyActivity, granularity);
+  const aggregatedData = aggregateData(filteredData, granularity);
 
   // Get unique tools
   const tools = [...new Set(aggregatedData.map((d) => d.tool))];
@@ -151,13 +180,29 @@ export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps)
     return formatNumber(value);
   };
 
-  const granularityLabel = granularity === "daily" ? "Daily" : granularity === "weekly" ? "Weekly" : "Monthly";
+  const timeRangeOptions: TimeRange[] = ["7D", "30D", "1Y"];
 
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold">Usage by IDE</h3>
-        <span className="text-xs text-[#232323]/50">{granularityLabel}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-[#232323]/20 overflow-hidden">
+            {timeRangeOptions.map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                  timeRange === range
+                    ? "bg-[#232323] text-white"
+                    : "bg-white text-[#232323]/70 hover:bg-[#232323]/5"
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">

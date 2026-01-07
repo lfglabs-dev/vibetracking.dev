@@ -8,8 +8,6 @@ interface UserData {
   display_name: string | null;
   avatar_url: string | null;
   company: string | null;
-  is_anonymous: boolean;
-  anonymous_id: string | null;
 }
 
 interface LeaderboardRow {
@@ -47,9 +45,7 @@ export async function GET(request: Request) {
           username,
           display_name,
           avatar_url,
-          company,
-          is_anonymous,
-          anonymous_id
+          company
         )
       `
       )
@@ -74,8 +70,6 @@ export async function GET(request: Request) {
         displayName: user.display_name,
         avatarUrl: user.avatar_url,
         company: user.company,
-        isAnonymous: user.is_anonymous,
-        anonymousId: user.anonymous_id,
         totalTokens: entry.total_tokens,
         totalSessions: entry.total_sessions,
         currentStreak: entry.current_streak_days,
@@ -84,9 +78,7 @@ export async function GET(request: Request) {
           model: entry.favorite_model,
           totalTokens: entry.total_tokens,
         }),
-        profileUrl: user.is_anonymous
-          ? `/u/${user.anonymous_id}`
-          : `/@${user.username}`,
+        profileUrl: `/@${user.username}`,
       };
     });
 

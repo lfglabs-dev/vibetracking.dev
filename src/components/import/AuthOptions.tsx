@@ -1,18 +1,12 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
 
 interface AuthOptionsProps {
-  onAnonymousSubmit: (displayName: string, company: string) => Promise<void>;
   isLoading: boolean;
 }
 
-export function AuthOptions({ onAnonymousSubmit, isLoading }: AuthOptionsProps) {
-  const [showAnonymousForm, setShowAnonymousForm] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [company, setCompany] = useState("");
-
+export function AuthOptions({ isLoading }: AuthOptionsProps) {
   const handleGitHubLogin = async () => {
     const supabase = createClient();
 
@@ -33,64 +27,11 @@ export function AuthOptions({ onAnonymousSubmit, isLoading }: AuthOptionsProps) 
     }
   };
 
-  const handleAnonymousSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onAnonymousSubmit(displayName, company);
-  };
-
-  if (showAnonymousForm) {
-    return (
-      <form onSubmit={handleAnonymousSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Display Name
-          </label>
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full px-4 py-3 rounded-[10px] border border-[#232323] focus:outline-none focus:ring-2 focus:ring-[#AAE7C0]"
-            placeholder="Your name"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Company (optional)
-          </label>
-          <input
-            type="text"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            className="w-full px-4 py-3 rounded-[10px] border border-[#232323] focus:outline-none focus:ring-2 focus:ring-[#AAE7C0]"
-            placeholder="Your company"
-          />
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => setShowAnonymousForm(false)}
-            className="btn-secondary flex-1"
-            disabled={isLoading}
-          >
-            Back
-          </button>
-          <button
-            type="submit"
-            className="btn-primary flex-1"
-            disabled={isLoading}
-          >
-            {isLoading ? "Saving..." : "Save Profile"}
-          </button>
-        </div>
-      </form>
-    );
-  }
-
   return (
     <div className="space-y-4">
+      <p className="text-center text-[#232323]/70 mb-4">
+        Connect your GitHub account to save your profile
+      </p>
       <button
         onClick={handleGitHubLogin}
         className="w-full py-3 px-4 bg-[#232323] text-white rounded-[10px] border-2 border-[#232323] hover:bg-[#333] transition-colors flex items-center justify-center gap-3 font-semibold"
@@ -104,23 +45,6 @@ export function AuthOptions({ onAnonymousSubmit, isLoading }: AuthOptionsProps) 
           />
         </svg>
         Continue with GitHub
-      </button>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[#232323]/20"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-[#EEF0F2] text-[#232323]/60">or</span>
-        </div>
-      </div>
-
-      <button
-        onClick={() => setShowAnonymousForm(true)}
-        className="btn-secondary w-full"
-        disabled={isLoading}
-      >
-        Continue without login
       </button>
     </div>
   );

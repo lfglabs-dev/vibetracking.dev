@@ -7,7 +7,6 @@ const RESERVED_PATHS = [
   "auth",
   "import",
   "og",
-  "u",
   "user",
   "_next",
 ];

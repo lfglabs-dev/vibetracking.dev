@@ -10,7 +10,6 @@ interface LeaderboardEntry {
   displayName: string | null;
   avatarUrl: string | null;
   company: string | null;
-  isAnonymous: boolean;
   estimatedSpend: number;
   totalSessions: number;
   currentStreak: number;
@@ -100,7 +99,7 @@ export function LeaderboardTable({
                         {entry.displayName || entry.username}
                       </div>
                       <div className="text-sm text-[#232323]/60">
-                        {entry.isAnonymous ? `/u/${entry.username.replace("anon_", "")}` : `@${entry.username}`}
+                        @{entry.username}
                       </div>
                     </div>
                   </Link>

@@ -5,8 +5,6 @@ export const MOCK_USERS: Record<string, {
   display_name: string | null;
   avatar_url: string | null;
   company: string | null;
-  is_anonymous: boolean;
-  anonymous_id: string | null;
 }> = {
   sarah_codes: {
     id: "1",
@@ -14,8 +12,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "Sarah Chen",
     avatar_url: "https://i.pravatar.cc/150?u=sarah",
     company: "Anthropic",
-    is_anonymous: false,
-    anonymous_id: null,
   },
   alex_dev: {
     id: "2",
@@ -23,8 +19,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "Alex Rivera",
     avatar_url: "https://i.pravatar.cc/150?u=alex",
     company: "Vercel",
-    is_anonymous: false,
-    anonymous_id: null,
   },
   maya_builds: {
     id: "3",
@@ -32,8 +26,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "Maya Johnson",
     avatar_url: "https://i.pravatar.cc/150?u=maya",
     company: "Supabase",
-    is_anonymous: false,
-    anonymous_id: null,
   },
   kevin_hacks: {
     id: "5",
@@ -41,8 +33,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "Kevin Park",
     avatar_url: "https://i.pravatar.cc/150?u=kevin",
     company: "OpenAI",
-    is_anonymous: false,
-    anonymous_id: null,
   },
   emma_codes: {
     id: "6",
@@ -50,8 +40,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "Emma Wilson",
     avatar_url: "https://i.pravatar.cc/150?u=emma",
     company: "Stripe",
-    is_anonymous: false,
-    anonymous_id: null,
   },
   james_dev: {
     id: "8",
@@ -59,8 +47,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "James Thompson",
     avatar_url: "https://i.pravatar.cc/150?u=james",
     company: "Linear",
-    is_anonymous: false,
-    anonymous_id: null,
   },
   lisa_builds: {
     id: "9",
@@ -68,8 +54,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "Lisa Wang",
     avatar_url: "https://i.pravatar.cc/150?u=lisa",
     company: "Figma",
-    is_anonymous: false,
-    anonymous_id: null,
   },
   mike_codes: {
     id: "10",
@@ -77,8 +61,6 @@ export const MOCK_USERS: Record<string, {
     display_name: "Mike Brown",
     avatar_url: "https://i.pravatar.cc/150?u=mike",
     company: "Notion",
-    is_anonymous: false,
-    anonymous_id: null,
   },
 };
 

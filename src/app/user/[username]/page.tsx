@@ -91,8 +91,6 @@ export default async function UserProfilePage({ params }: PageParams) {
             displayName: mockUser.display_name,
             avatarUrl: mockUser.avatar_url,
             company: mockUser.company,
-            isAnonymous: mockUser.is_anonymous,
-            anonymousId: mockUser.anonymous_id,
           }}
           stats={
             mockStats
@@ -195,8 +193,6 @@ export default async function UserProfilePage({ params }: PageParams) {
         displayName: user.display_name,
         avatarUrl: user.avatar_url,
         company: user.company,
-        isAnonymous: user.is_anonymous,
-        anonymousId: user.anonymous_id,
       }}
       stats={
         stats

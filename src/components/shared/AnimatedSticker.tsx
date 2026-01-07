@@ -36,7 +36,6 @@ export function AnimatedSticker({
       alt=""
       width={width}
       height={height}
-      quality={100}
       className={`${className} transition-transform duration-500 ${
         isVisible ? "animate-bounce-in" : "scale-0 opacity-0"
       }`}

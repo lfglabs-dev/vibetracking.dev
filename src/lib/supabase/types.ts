@@ -12,37 +12,31 @@ export interface Database {
       users: {
         Row: {
           id: string;
-          github_id: string | null;
+          github_id: string;
           username: string;
           display_name: string | null;
           avatar_url: string | null;
           company: string | null;
-          is_anonymous: boolean;
-          anonymous_id: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          github_id?: string | null;
+          github_id: string;
           username: string;
           display_name?: string | null;
           avatar_url?: string | null;
           company?: string | null;
-          is_anonymous?: boolean;
-          anonymous_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          github_id?: string | null;
+          github_id?: string;
           username?: string;
           display_name?: string | null;
           avatar_url?: string | null;
           company?: string | null;
-          is_anonymous?: boolean;
-          anonymous_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

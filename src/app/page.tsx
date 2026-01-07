@@ -13,8 +13,6 @@ interface UserData {
   display_name: string | null
   avatar_url: string | null
   company: string | null
-  is_anonymous: boolean
-  anonymous_id: string | null
 }
 
 interface LeaderboardRow {
@@ -33,7 +31,6 @@ interface LeaderboardEntry {
   displayName: string | null
   avatarUrl: string | null
   company: string | null
-  isAnonymous: boolean
   totalTokens: number
   totalSessions: number
   currentStreak: number
@@ -53,12 +50,11 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     displayName: 'Sarah Chen',
     avatarUrl: 'https://i.pravatar.cc/150?u=sarah',
     company: 'Anthropic',
-    isAnonymous: false,
     totalTokens: 45_892_341,
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 1247,
     currentStreak: 42,
-    profileUrl: '/sarah_codes',
+    profileUrl: '/@sarah_codes',
   },
   {
     rank: 2,
@@ -67,12 +63,11 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     displayName: 'Alex Rivera',
     avatarUrl: 'https://i.pravatar.cc/150?u=alex',
     company: 'Vercel',
-    isAnonymous: false,
     totalTokens: 38_127_892,
     favoriteModel: 'claude-opus-4-20250514',
     totalSessions: 982,
     currentStreak: 28,
-    profileUrl: '/alex_dev',
+    profileUrl: '/@alex_dev',
   },
   {
     rank: 3,
@@ -81,110 +76,76 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     displayName: 'Maya Johnson',
     avatarUrl: 'https://i.pravatar.cc/150?u=maya',
     company: 'Supabase',
-    isAnonymous: false,
     totalTokens: 29_451_203,
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 756,
     currentStreak: 35,
-    profileUrl: '/maya_builds',
+    profileUrl: '/@maya_builds',
   },
   {
     rank: 4,
     userId: '4',
-    username: 'anon_abc123',
-    displayName: null,
-    avatarUrl: null,
-    company: null,
-    isAnonymous: true,
-    totalTokens: 24_892_451,
-    favoriteModel: 'claude-sonnet-4-20250514',
-    totalSessions: 621,
-    currentStreak: 14,
-    profileUrl: '/u/abc123',
-  },
-  {
-    rank: 5,
-    userId: '5',
     username: 'kevin_hacks',
     displayName: 'Kevin Park',
     avatarUrl: 'https://i.pravatar.cc/150?u=kevin',
     company: 'OpenAI',
-    isAnonymous: false,
-    totalTokens: 21_347_892,
+    totalTokens: 24_892_451,
     favoriteModel: 'gpt-4o',
-    totalSessions: 543,
+    totalSessions: 621,
     currentStreak: 21,
-    profileUrl: '/kevin_hacks',
+    profileUrl: '/@kevin_hacks',
   },
   {
-    rank: 6,
-    userId: '6',
+    rank: 5,
+    userId: '5',
     username: 'emma_codes',
     displayName: 'Emma Wilson',
     avatarUrl: 'https://i.pravatar.cc/150?u=emma',
     company: 'Stripe',
-    isAnonymous: false,
-    totalTokens: 18_923_451,
+    totalTokens: 21_347_892,
     favoriteModel: 'claude-sonnet-4-20250514',
-    totalSessions: 489,
+    totalSessions: 543,
     currentStreak: 19,
-    profileUrl: '/emma_codes',
+    profileUrl: '/@emma_codes',
   },
   {
-    rank: 7,
-    userId: '7',
-    username: 'anon_xyz789',
-    displayName: 'Cursor Lover',
-    avatarUrl: null,
-    company: null,
-    isAnonymous: true,
-    totalTokens: 15_782_341,
-    favoriteModel: 'claude-haiku-3-5-20241022',
-    totalSessions: 412,
-    currentStreak: 8,
-    profileUrl: '/u/xyz789',
-  },
-  {
-    rank: 8,
-    userId: '8',
+    rank: 6,
+    userId: '6',
     username: 'james_dev',
     displayName: 'James Thompson',
     avatarUrl: 'https://i.pravatar.cc/150?u=james',
     company: 'Linear',
-    isAnonymous: false,
-    totalTokens: 12_451_892,
+    totalTokens: 18_923_451,
     favoriteModel: 'claude-sonnet-4-20250514',
-    totalSessions: 356,
+    totalSessions: 489,
     currentStreak: 12,
-    profileUrl: '/james_dev',
+    profileUrl: '/@james_dev',
   },
   {
-    rank: 9,
-    userId: '9',
+    rank: 7,
+    userId: '7',
     username: 'lisa_builds',
     displayName: 'Lisa Wang',
     avatarUrl: 'https://i.pravatar.cc/150?u=lisa',
     company: 'Figma',
-    isAnonymous: false,
-    totalTokens: 9_823_451,
+    totalTokens: 15_782_341,
     favoriteModel: 'claude-sonnet-4-20250514',
-    totalSessions: 287,
+    totalSessions: 412,
     currentStreak: 7,
-    profileUrl: '/lisa_builds',
+    profileUrl: '/@lisa_builds',
   },
   {
-    rank: 10,
-    userId: '10',
+    rank: 8,
+    userId: '8',
     username: 'mike_codes',
     displayName: 'Mike Brown',
     avatarUrl: 'https://i.pravatar.cc/150?u=mike',
     company: 'Notion',
-    isAnonymous: false,
-    totalTokens: 7_451_234,
+    totalTokens: 12_451_892,
     favoriteModel: 'claude-opus-4-20250514',
-    totalSessions: 198,
+    totalSessions: 356,
     currentStreak: 5,
-    profileUrl: '/mike_codes',
+    profileUrl: '/@mike_codes',
   },
 ]
 
@@ -217,9 +178,7 @@ export default async function Home() {
         username,
         display_name,
         avatar_url,
-        company,
-        is_anonymous,
-        anonymous_id
+        company
       )
     `
     )
@@ -240,14 +199,11 @@ export default async function Home() {
         displayName: userData.display_name,
         avatarUrl: userData.avatar_url,
         company: userData.company,
-        isAnonymous: userData.is_anonymous,
         totalTokens: entry.total_tokens,
         totalSessions: entry.total_sessions,
         currentStreak: entry.current_streak_days,
         favoriteModel: entry.favorite_model,
-        profileUrl: userData.is_anonymous
-          ? `/u/${userData.anonymous_id}`
-          : `/@${userData.username}`,
+        profileUrl: `/@${userData.username}`,
       }
     }).filter((entry): entry is LeaderboardSeed => entry !== null) || []
 
