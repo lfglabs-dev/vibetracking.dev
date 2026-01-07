@@ -1,78 +1,85 @@
 "use client";
 
+import { calculateFunFactMetrics } from "@/lib/utils";
+
 interface FunComparisonProps {
   totalTokens: number;
-  totalSessions: number;
-  longestSessionMs: number;
+  estimatedApiSpend: number;
+  activeDays: number;
 }
 
 export function FunComparison({
   totalTokens,
-  totalSessions,
-  longestSessionMs,
+  estimatedApiSpend,
+  activeDays,
 }: FunComparisonProps) {
-  const comparisons: { text: string; condition: boolean }[] = [];
+  const metrics = calculateFunFactMetrics(totalTokens, estimatedApiSpend, activeDays);
 
-  // Token comparisons
-  const novels = Math.round(totalTokens / 75000);
-  if (novels >= 1) {
-    comparisons.push({
-      text: `${novels.toLocaleString()} novel${novels > 1 ? "s" : ""} worth of code`,
-      condition: true,
-    });
-  }
-
-  const tweets = Math.round(totalTokens / 50);
-  if (tweets >= 1000) {
-    comparisons.push({
-      text: `${(tweets / 1000).toFixed(1)}K tweets worth of prompts`,
-      condition: true,
-    });
-  }
-
-  // Session comparisons (duration in ms to hours)
-  const totalHours = Math.round(longestSessionMs / 3600000);
-  if (totalHours >= 1) {
-    const inceptionRuntimes = Math.round(totalHours / 2.5);
-    if (inceptionRuntimes >= 1) {
-      comparisons.push({
-        text: `${inceptionRuntimes}x longer than Inception`,
-        condition: true,
-      });
+  // Format salary with proper K/M notation
+  const formatSalary = (amount: number): string => {
+    if (amount >= 1_000_000) {
+      return `$${(amount / 1_000_000).toFixed(1)}M`;
     }
-  }
+    if (amount >= 1_000) {
+      return `$${(amount / 1_000).toFixed(0)}K`;
+    }
+    return `$${Math.round(amount)}`;
+  };
 
-  const marathons = Math.round(totalHours / 4);
-  if (marathons >= 1) {
-    comparisons.push({
-      text: `${marathons} marathon${marathons > 1 ? "s" : ""} of coding`,
-      condition: true,
-    });
-  }
+  // Format lines of code with K/M notation
+  const formatLines = (lines: number): string => {
+    if (lines >= 1_000_000) {
+      return `${(lines / 1_000_000).toFixed(1)}M`;
+    }
+    if (lines >= 1_000) {
+      return `${(lines / 1_000).toFixed(0)}K`;
+    }
+    return lines.toLocaleString();
+  };
 
-  // Session count comparisons
-  if (totalSessions >= 100) {
-    comparisons.push({
-      text: `More sessions than a therapist sees in a month`,
-      condition: true,
-    });
-  }
-
-  if (comparisons.length === 0) {
-    return null;
-  }
-
-  // Pick a random comparison
-  const comparison = comparisons[Math.floor(Math.random() * comparisons.length)];
+  // Format percentage
+  const formatPercent = (percent: number): string => {
+    if (percent >= 1000) {
+      return `${(percent / 1000).toFixed(1)}K`;
+    }
+    return Math.round(percent).toLocaleString();
+  };
 
   return (
     <div className="card bg-gradient-to-r from-[#FEA6CC]/20 to-[#AAE7C0]/20 border-2 border-dashed border-[#232323]/20">
       <div className="text-center py-4">
-        <p className="text-sm text-[#232323]/60 mb-2">Fun fact</p>
-        <p className="text-lg font-bold">
-          Thats{" "}
-          <span className="text-[#FEA6CC]">{comparison.text}</span>!
-        </p>
+        <p className="text-sm text-[#232323]/60 mb-4">Fun facts</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Salary Saved */}
+          <div className="text-center">
+            <p className="text-2xl font-black text-[#E85A9A]">
+              {formatSalary(metrics.salarySaved)}
+            </p>
+            <p className="text-sm text-[#232323]/60">
+              AI made you save
+            </p>
+          </div>
+
+          {/* Lines of Code */}
+          <div className="text-center">
+            <p className="text-2xl font-black text-[#3DB06B]">
+              {formatLines(metrics.linesOfCode)}
+            </p>
+            <p className="text-sm text-[#232323]/60">
+              lines of code generated
+            </p>
+          </div>
+
+          {/* Productivity Boost */}
+          <div className="text-center">
+            <p className="text-2xl font-black text-[#5B8DEF]">
+              +{formatPercent(metrics.productivityBoostPercent)}%
+            </p>
+            <p className="text-sm text-[#232323]/60">
+              more code written
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

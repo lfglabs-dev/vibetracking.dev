@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "dotenvx run -f .env.vibetracking -- next dev",
+    "build": "dotenvx run -f .env.vibetracking -- next build",
+    "start": "dotenvx run -f .env.vibetracking -- next start",
+    "lint": "eslint",
+    "test:onboarding": "npx tsx scripts/test-onboarding.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

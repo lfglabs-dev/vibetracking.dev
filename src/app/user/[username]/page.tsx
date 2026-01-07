@@ -2,7 +2,8 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import { ProfilePage } from "@/components/profile/ProfilePage";
-import { MOCK_USERS, MOCK_STATS, generateMockDailyActivity } from "@/lib/mockData";
+import { MOCK_USERS, MOCK_STATS, generateMockDailyActivity, generateMockTokenUsage } from "@/lib/mockData";
+import { estimateApiSpendUsd } from "@/lib/pricing";
 import type { Metadata } from "next";
 
 interface PageParams {
@@ -81,6 +82,7 @@ export default async function UserProfilePage({ params }: PageParams) {
   if (error || !user) {
     // Use mock data if available
     if (mockUser) {
+      const mockTokenUsage = generateMockTokenUsage(decodedUsername);
       return (
         <ProfilePage
           user={{
@@ -104,6 +106,7 @@ export default async function UserProfilePage({ params }: PageParams) {
                   currentStreakDays: mockStats.current_streak_days,
                   firstActivityDate: mockStats.first_activity_date,
                   lastActivityDate: mockStats.last_activity_date,
+                  userPercentile: mockStats.user_percentile || 15,
                 }
               : null
           }
@@ -113,6 +116,13 @@ export default async function UserProfilePage({ params }: PageParams) {
             messageCount: a.message_count,
             sessionCount: a.session_count,
             totalTokens: a.total_tokens,
+          }))}
+          tokenUsage={mockTokenUsage.map((t) => ({
+            date: t.date,
+            tool: t.tool,
+            model: t.model,
+            inputTokens: t.input_tokens,
+            outputTokens: t.output_tokens,
           }))}
           isOwnProfile={false}
         />
@@ -135,6 +145,36 @@ export default async function UserProfilePage({ params }: PageParams) {
     .eq("user_id", user.id)
     .order("date", { ascending: false })
     .limit(365);
+
+  // Get token usage for model breakdown chart
+  const { data: tokenUsage } = await supabase
+    .from("token_usage")
+    .select("date, tool, model, input_tokens, output_tokens")
+    .eq("user_id", user.id)
+    .order("date", { ascending: true });
+
+  // Calculate user percentile based on estimated spend
+  let userPercentile = 50; // Default
+  if (stats) {
+    const { data: allUserStats } = await supabase
+      .from("user_stats")
+      .select("user_id, total_tokens, favorite_model");
+
+    if (allUserStats && allUserStats.length > 0) {
+      const userSpend = estimateApiSpendUsd({
+        model: stats.favorite_model,
+        totalTokens: stats.total_tokens,
+      });
+      const allSpends = allUserStats.map((u) =>
+        estimateApiSpendUsd({
+          model: u.favorite_model,
+          totalTokens: u.total_tokens,
+        })
+      );
+      const usersAbove = allSpends.filter((spend) => spend > userSpend).length;
+      userPercentile = Math.max(1, Math.round((1 - usersAbove / allUserStats.length) * 100));
+    }
+  }
 
   const isOwnProfile = authUser?.id === user.id;
 
@@ -161,6 +201,7 @@ export default async function UserProfilePage({ params }: PageParams) {
               currentStreakDays: stats.current_streak_days,
               firstActivityDate: stats.first_activity_date,
               lastActivityDate: stats.last_activity_date,
+              userPercentile,
             }
           : null
       }
@@ -171,6 +212,15 @@ export default async function UserProfilePage({ params }: PageParams) {
           messageCount: a.message_count,
           sessionCount: a.session_count,
           totalTokens: a.total_tokens,
+        })) || []
+      }
+      tokenUsage={
+        tokenUsage?.map((t) => ({
+          date: t.date,
+          tool: t.tool,
+          model: t.model,
+          inputTokens: t.input_tokens,
+          outputTokens: t.output_tokens,
         })) || []
       }
       isOwnProfile={isOwnProfile}

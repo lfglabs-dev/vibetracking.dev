@@ -1,10 +1,17 @@
 "use client";
 
-import { formatNumber } from "@/lib/utils";
-import Link from "next/link";
+import { useState } from "react";
+import { formatNumber, formatCurrency } from "@/lib/utils";
+import { estimateApiSpendUsd } from "@/lib/pricing";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { FunComparison } from "@/components/dashboard/FunComparison";
+import { UsageByToolChart } from "@/components/dashboard/UsageByToolChart";
+import { UsageByModelChart } from "@/components/dashboard/UsageByModelChart";
+import { UnitToggle, type DisplayUnit } from "@/components/dashboard/UnitToggle";
 import { ShareButton } from "@/components/share/ShareButton";
+import { Logo } from "@/components/shared/Logo";
+import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
+import { formatModelName } from "@/lib/formatModelName";
 
 interface ProfilePageProps {
   user: {
@@ -26,6 +33,7 @@ interface ProfilePageProps {
     currentStreakDays: number;
     firstActivityDate: string | null;
     lastActivityDate: string | null;
+    userPercentile: number;
   } | null;
   dailyActivity: {
     date: string;
@@ -34,6 +42,13 @@ interface ProfilePageProps {
     sessionCount: number;
     totalTokens: number;
   }[];
+  tokenUsage: {
+    date: string;
+    tool: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+  }[];
   isOwnProfile: boolean;
 }
 
@@ -41,8 +56,11 @@ export function ProfilePage({
   user,
   stats,
   dailyActivity,
+  tokenUsage,
   isOwnProfile,
 }: ProfilePageProps) {
+  const [displayUnit, setDisplayUnit] = useState<DisplayUnit>("tokens");
+
   // Profile URL - clean /username format for authenticated users
   const profileUrl = user.isAnonymous
     ? `/u/${user.anonymousId}`
@@ -63,23 +81,127 @@ export function ProfilePage({
   // Calculate active days from daily activity
   const activeDays = new Set(dailyActivity.map((a) => a.date)).size;
 
+  // Calculate estimated API spend for fun facts
+  const estimatedApiSpend = stats
+    ? estimateApiSpendUsd({
+        model: stats.favoriteModel,
+        totalTokens: stats.totalTokens,
+      })
+    : 0;
+
   return (
     <div className="min-h-screen py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto relative">
+        {/* Stickers */}
+        <div
+          className="pointer-events-none select-none absolute inset-0 z-0 overflow-visible"
+          aria-hidden="true"
+        >
+          {/* Top section - near header */}
+          <AnimatedSticker
+            src="/stickers/vibe.webp"
+            width={180}
+            height={180}
+            className="absolute top-[60px] -left-24 md:-left-44 lg:-left-52 w-32 md:w-44 rotate-[-12deg] hidden sm:block drop-shadow-lg"
+            delay={100}
+          />
+          <AnimatedSticker
+            src="/stickers/rainbow.webp"
+            width={180}
+            height={180}
+            className="absolute top-[50px] -right-24 md:-right-44 lg:-right-52 w-32 md:w-44 rotate-[15deg] hidden sm:block drop-shadow-lg"
+            delay={200}
+          />
+          {/* Profile section */}
+          <AnimatedSticker
+            src="/stickers/cloud.webp"
+            width={120}
+            height={120}
+            className="absolute top-[220px] -left-20 md:-left-36 lg:-left-44 w-24 md:w-32 rotate-[8deg] hidden md:block drop-shadow-lg"
+            delay={300}
+          />
+          <AnimatedSticker
+            src="/stickers/banana.webp"
+            width={140}
+            height={140}
+            className="absolute top-[240px] -right-24 md:-right-40 lg:-right-48 w-28 md:w-36 rotate-[-8deg] hidden md:block drop-shadow-lg"
+            delay={400}
+          />
+          {/* Stats section */}
+          <AnimatedSticker
+            src="/stickers/cursor.webp"
+            width={140}
+            height={140}
+            className="absolute top-[420px] -left-24 md:-left-40 lg:-left-48 w-28 md:w-36 rotate-[10deg] hidden md:block drop-shadow-lg"
+            delay={500}
+          />
+          <AnimatedSticker
+            src="/stickers/jensen.webp"
+            width={150}
+            height={150}
+            className="absolute top-[450px] -right-24 md:-right-44 lg:-right-52 w-30 md:w-40 rotate-[-10deg] hidden md:block drop-shadow-lg"
+            delay={600}
+          />
+          {/* Heatmap section */}
+          <AnimatedSticker
+            src="/stickers/cloud.webp"
+            width={100}
+            height={100}
+            className="absolute top-[650px] -right-20 md:-right-32 lg:-right-40 w-20 md:w-28 rotate-[12deg] hidden lg:block drop-shadow-lg"
+            delay={700}
+          />
+          <AnimatedSticker
+            src="/stickers/no_em_dashes.webp"
+            width={150}
+            height={150}
+            className="absolute top-[700px] -left-24 md:-left-40 lg:-left-48 w-30 md:w-40 rotate-[-6deg] hidden lg:block drop-shadow-lg"
+            delay={800}
+          />
+          {/* Charts section */}
+          <AnimatedSticker
+            src="/stickers/elon.webp"
+            width={140}
+            height={140}
+            className="absolute top-[900px] -right-24 md:-right-40 lg:-right-48 w-28 md:w-36 rotate-[8deg] hidden lg:block drop-shadow-lg"
+            delay={900}
+          />
+          <AnimatedSticker
+            src="/stickers/rainbow.webp"
+            width={120}
+            height={120}
+            className="absolute top-[950px] -left-20 md:-left-36 lg:-left-44 w-24 md:w-32 rotate-[-10deg] hidden lg:block drop-shadow-lg"
+            delay={1000}
+          />
+          {/* Fun comparison section */}
+          <AnimatedSticker
+            src="/stickers/marck.webp"
+            width={140}
+            height={140}
+            className="absolute top-[1150px] -left-24 md:-left-40 lg:-left-48 w-28 md:w-36 rotate-[12deg] hidden lg:block drop-shadow-lg"
+            delay={1100}
+          />
+          <AnimatedSticker
+            src="/stickers/cloud.webp"
+            width={100}
+            height={100}
+            className="absolute top-[1200px] -right-20 md:-right-32 lg:-right-40 w-20 md:w-28 rotate-[-8deg] hidden lg:block drop-shadow-lg"
+            delay={1200}
+          />
+        </div>
+
+        <div className="relative z-10">
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
-          <Link href="/">
-            <h1 className="text-3xl font-black">
-              <span className="text-[#FEA6CC]">vibe</span>
-              <span className="text-[#AAE7C0]">tracking</span>
-            </h1>
-          </Link>
+          <Logo />
 
-          <ShareButton
-            url={typeof window !== "undefined" ? `${window.location.origin}${profileUrl}` : profileUrl}
-            title={`${displayName}'s AI coding stats`}
-            stats={stats ? { totalTokens: stats.totalTokens, totalSessions: stats.totalSessions } : undefined}
-          />
+          <div className="flex items-center gap-3">
+            <UnitToggle value={displayUnit} onChange={setDisplayUnit} />
+            <ShareButton
+              url={typeof window !== "undefined" ? `${window.location.origin}${profileUrl}` : profileUrl}
+              title={`${displayName}'s AI coding stats`}
+              stats={stats ? { totalTokens: stats.totalTokens, totalSessions: stats.totalSessions } : undefined}
+            />
+          </div>
         </header>
 
         {/* Profile Header */}
@@ -113,25 +235,29 @@ export function ProfilePage({
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="card text-center">
-                <div className="text-3xl font-black text-[#FEA6CC]">
-                  {formatNumber(stats.totalTokens)}
+                <div className="text-3xl font-black text-[#D63384]">
+                  {displayUnit === "usd"
+                    ? formatCurrency(estimatedApiSpend)
+                    : formatNumber(stats.totalTokens)}
                 </div>
-                <div className="text-sm text-[#232323]/60">Total Tokens</div>
+                <div className="text-sm text-[#232323]/60">
+                  {displayUnit === "usd" ? "Est. API Spend" : "Total Tokens"}
+                </div>
               </div>
               <div className="card text-center">
-                <div className="text-3xl font-black text-[#B3D8F5]">
+                <div className="text-3xl font-black text-[#0D6EFD]">
                   {formatNumber(stats.totalSessions)}
                 </div>
                 <div className="text-sm text-[#232323]/60">Sessions</div>
               </div>
               <div className="card text-center">
-                <div className="text-3xl font-black text-[#AAE7C0]">
-                  {stats.currentStreakDays}
+                <div className="text-3xl font-black text-[#198754] text-base leading-tight">
+                  {stats.favoriteModel ? formatModelName(stats.favoriteModel) : "N/A"}
                 </div>
-                <div className="text-sm text-[#232323]/60">Current Streak</div>
+                <div className="text-sm text-[#232323]/60">Favorite Model</div>
               </div>
               <div className="card text-center">
-                <div className="text-3xl font-black text-[#F0F69B]">
+                <div className="text-3xl font-black text-[#CC9A06]">
                   {activeDays}
                 </div>
                 <div className="text-sm text-[#232323]/60">Active Days</div>
@@ -141,12 +267,12 @@ export function ProfilePage({
             {/* Additional Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               <div className="card">
-                <h3 className="font-bold mb-4">Highlights</h3>
-                <ul className="space-y-3">
+                <h3 className="font-bold mb-3">Highlights</h3>
+                <ul className="space-y-2">
                   {stats.favoriteModel && (
                     <li className="flex items-center justify-between">
                       <span className="text-[#232323]/60">Favorite Model</span>
-                      <span className="tag tag-pink">{stats.favoriteModel}</span>
+                      <span className="tag tag-pink">{formatModelName(stats.favoriteModel)}</span>
                     </li>
                   )}
                   {stats.favoriteTool && (
@@ -155,43 +281,19 @@ export function ProfilePage({
                       <span className="tag tag-blue">{stats.favoriteTool}</span>
                     </li>
                   )}
-                  {stats.longestSessionMs > 0 && (
-                    <li className="flex items-center justify-between">
-                      <span className="text-[#232323]/60">Longest Session</span>
-                      <span className="tag tag-green">
-                        {formatDuration(stats.longestSessionMs)}
-                      </span>
-                    </li>
-                  )}
-                  <li className="flex items-center justify-between">
-                    <span className="text-[#232323]/60">Best Streak</span>
-                    <span className="tag tag-yellow">
-                      {stats.longestStreakDays} days
-                    </span>
-                  </li>
                 </ul>
               </div>
 
-              <div className="card">
-                <h3 className="font-bold mb-4">Timeline</h3>
-                <ul className="space-y-3">
-                  {stats.firstActivityDate && (
-                    <li className="flex items-center justify-between">
-                      <span className="text-[#232323]/60">First Activity</span>
-                      <span className="font-medium">
-                        {new Date(stats.firstActivityDate).toLocaleDateString()}
-                      </span>
-                    </li>
-                  )}
-                  {stats.lastActivityDate && (
-                    <li className="flex items-center justify-between">
-                      <span className="text-[#232323]/60">Last Activity</span>
-                      <span className="font-medium">
-                        {new Date(stats.lastActivityDate).toLocaleDateString()}
-                      </span>
-                    </li>
-                  )}
-                </ul>
+              <div className="card bg-gradient-to-br from-[#FEA6CC]/10 to-[#B3D8F5]/10">
+                <h3 className="font-bold mb-2">Power User Ranking</h3>
+                <div className="text-center py-2">
+                  <div className="text-4xl font-black text-[#D63384] mb-1">
+                    Top {stats.userPercentile}%
+                  </div>
+                  <p className="text-xs text-[#232323]/60">
+                    by estimated API spend
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -202,13 +304,25 @@ export function ProfilePage({
               </div>
             )}
 
+            {/* Usage Charts - Side by Side */}
+            {(dailyActivity.length > 0 || tokenUsage.length > 0) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                {dailyActivity.length > 0 && (
+                  <UsageByToolChart dailyActivity={dailyActivity} unit={displayUnit} />
+                )}
+                {tokenUsage.length > 0 && (
+                  <UsageByModelChart tokenUsage={tokenUsage} unit={displayUnit} />
+                )}
+              </div>
+            )}
+
             {/* Fun Comparison */}
             {stats.totalTokens > 10000 && (
               <div className="mb-8">
                 <FunComparison
                   totalTokens={stats.totalTokens}
-                  totalSessions={stats.totalSessions}
-                  longestSessionMs={stats.longestSessionMs}
+                  estimatedApiSpend={estimatedApiSpend}
+                  activeDays={activeDays}
                 />
               </div>
             )}
@@ -226,6 +340,7 @@ export function ProfilePage({
         <footer className="mt-12 text-center text-sm text-[#232323]/50">
           <p>Track your AI coding vibes with Claude Code, Codex, and Cursor</p>
         </footer>
+        </div>
       </div>
     </div>
   );
