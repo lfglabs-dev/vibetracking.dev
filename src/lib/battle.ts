@@ -13,8 +13,10 @@ const supabase = createClient(
 export function parseBattleSlug(
   slug: string
 ): { user1: string; user2: string } | null {
+  // Decode URL-encoded characters (e.g., %40 -> @)
+  const decodedSlug = decodeURIComponent(slug);
   // Expected format: @username1-vs-@username2
-  const match = slug.match(/^@([a-zA-Z0-9_-]+)-vs-@([a-zA-Z0-9_-]+)$/);
+  const match = decodedSlug.match(/^@([a-zA-Z0-9_-]+)-vs-@([a-zA-Z0-9_-]+)$/);
   if (!match) {
     return null;
   }
