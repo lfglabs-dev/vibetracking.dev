@@ -2,6 +2,7 @@
 
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import Link from "next/link";
+import { ChallengeUserButton } from "@/components/challenge/ChallengeUserButton";
 
 interface LeaderboardEntry {
   rank: number;
@@ -19,11 +20,13 @@ interface LeaderboardEntry {
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   currentUserId?: string;
+  currentUsername?: string;
 }
 
 export function LeaderboardTable({
   entries,
   currentUserId,
+  currentUsername,
 }: LeaderboardTableProps) {
   if (entries.length === 0) {
     return (
@@ -46,6 +49,7 @@ export function LeaderboardTable({
             <th className="py-3 px-4 font-medium text-right">Est. API Spend</th>
             <th className="py-3 px-4 font-medium text-right">Sessions</th>
             <th className="py-3 px-4 font-medium text-right">Streak</th>
+            {currentUsername && <th className="py-3 px-4 font-medium"></th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-[#232323]/10">
@@ -128,6 +132,18 @@ export function LeaderboardTable({
                     <span className="text-[#232323]/40">—</span>
                   )}
                 </td>
+                {currentUsername && (
+                  <td className="py-4 px-4">
+                    {!isCurrentUser && (
+                      <ChallengeUserButton
+                        myUsername={currentUsername}
+                        opponentUsername={entry.username}
+                        opponentDisplayName={entry.displayName || undefined}
+                        variant="small"
+                      />
+                    )}
+                  </td>
+                )}
               </tr>
             );
           })}
