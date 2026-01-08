@@ -1,22 +1,42 @@
 {
   "name": "vibetracking",
   "version": "0.1.0",
-  "description": "Track your AI coding tool usage",
+  "description": "Track your AI coding tool usage across Claude Code, Codex, and Cursor",
   "type": "module",
   "bin": {
     "vibetracking": "./dist/index.js"
   },
   "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node",
     "dev": "bun run ./src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "prepublishOnly": "bun test && bun run build"
   },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cli",
+    "ai",
+    "coding",
+    "claude",
+    "codex",
+    "cursor",
+    "developer-tools",
+    "usage-tracking",
+    "vibetracking"
+  ],
+  "author": "vibetracking",
+  "license": "MIT",
+  "homepage": "https://vibetracking.dev",
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/pako": "^2.0.4"
-  },
-  "peerDependencies": {
+    "@types/pako": "^2.0.4",
     "typescript": "^5"
   },
   "dependencies": {
