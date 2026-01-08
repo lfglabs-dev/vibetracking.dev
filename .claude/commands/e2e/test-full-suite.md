@@ -1,67 +1,80 @@
-# E2E Test: Full Test Suite
+# E2E Test: Full Regression Suite
 
-Execute the complete E2E test suite for vibetracking in the correct order.
+Complete end-to-end test suite executing all tests in proper dependency order. Use this for full regression testing before releases.
 
 ## Prerequisites
-- Dev server must be running at http://localhost:3000
-- If not running, inform the user to start it with `npm run dev`
-- Fresh browser state (no existing sessions)
+- Dev server running at http://localhost:3000
+- Fresh browser state (clear cookies/session)
+- ~15-20 minutes to complete
 
 ## Execution Order
 
-The tests must run in this specific order due to dependencies:
+Tests must run in this sequence due to dependencies:
 
 ```
-1. Homepage (Not Connected) → Baseline, no auth required
-2. Import + Onboarding → Creates User A
-3. Homepage (Connected) → Tests with User A session
-4. Own Profile → Tests User A's profile
-5. Create Second User → Creates User B
-6. Another User Profile → View User B while logged as User A
-7. Responsive Tests → All viewports
-8. Navigation Tests → URL rewriting, logo links
-9. Console Error Summary → Aggregate all errors
+Phase 1: Homepage (Unauthenticated) → No dependencies
+Phase 2: Import + Registration → Creates User A
+Phase 3: Homepage (Authenticated) → Requires User A
+Phase 4: Own Profile → Requires User A
+Phase 5: Create Second User → Creates User B
+Phase 6: Other User Profile → View User B as User A
+Phase 7: Responsive Design → Uses User A profile
+Phase 8: Navigation Tests → General
+Phase 9: Console Error Summary → Aggregate
 ```
 
 ---
 
-## Phase 1: Homepage Not Connected
+## Phase 1: Homepage (Unauthenticated)
 
-### Step 1.1: Fresh Start
-1. Use `mcp__playwright__browser_tabs` action="new" to ensure fresh tab
-2. Use `mcp__playwright__browser_navigate` to http://localhost:3000
+### 1.1 Fresh Start
+```
+mcp__playwright__browser_tabs: action="new"
+mcp__playwright__browser_navigate: http://localhost:3000
+mcp__playwright__browser_snapshot
+```
 
-### Step 1.2: Verify Not Connected State
-Use `mcp__playwright__browser_snapshot`:
-- [ ] Logo visible
-- [ ] "Are you a good vibe Coder?" headline
-- [ ] CTA box with "bunx vibetracking"
-- [ ] Leaderboard visible
-- [ ] NO "My Profile" button
+### 1.2 Verify Layout
+- [ ] HP-01: Logo "vibetracking" visible
+- [ ] HP-02: Headline visible
+- [ ] HP-03: CTA box visible
+- [ ] HP-07: NO "My Profile" button
 
-### Step 1.3: Test Copy Button
-1. Click copy button
-2. Verify "Copied!" appears
-3. Wait 2s, verify reverts
+### 1.3 Test Copy Button
+```
+mcp__playwright__browser_click: element="copy button", ref="[ref]"
+mcp__playwright__browser_snapshot
+```
+- [ ] HP-04: "Copied!" appears, then reverts
 
-### Step 1.4: Screenshot
-`mcp__playwright__browser_take_screenshot` filename="1-homepage-not-connected.png"
+### 1.4 Verify Leaderboard
+- [ ] HP-05: Table with columns visible
+- [ ] HP-06: Medal emojis on top 3
+
+### 1.5 Screenshot
+```
+mcp__playwright__browser_take_screenshot: filename="1-homepage-unauth.png"
+```
 
 ---
 
-## Phase 2: Onboarding - Create User A
+## Phase 2: Import + Create User A
 
-### Step 2.1: Generate Test Data for User A
-Generate inline with these approximate values:
+### 2.1 Generate User A Data
 ```javascript
-// User A - "Power User" persona
-{
+// "Power User" profile - high usage
+const userA = {
   timestamp: Date.now(),
   version: 1,
   tools: {
     claude_code: {
       tool: "claude_code",
-      dailyActivity: generateDays(75), // 75 days of activity
+      dailyActivity: [
+        { date: "2024-10-01", tool: "claude_code", messageCount: 200, sessionCount: 20, totalTokens: 1500000 },
+        { date: "2024-10-02", tool: "claude_code", messageCount: 180, sessionCount: 18, totalTokens: 1300000 },
+        { date: "2024-10-03", tool: "claude_code", messageCount: 150, sessionCount: 15, totalTokens: 1100000 },
+        // ... 60+ days of activity
+      ],
       modelUsage: [
         { model: "claude-sonnet-4-20250514", inputTokens: 5000000, outputTokens: 2000000, cacheReadTokens: 4000000 },
         { model: "claude-3-5-haiku-20241022", inputTokens: 800000, outputTokens: 200000 }
@@ -70,354 +83,337 @@ Generate inline with these approximate values:
         totalTokens: 12000000,
         totalSessions: 300,
         totalMessages: 6000,
-        longestSessionMs: 10800000, // 3 hours
+        longestSessionMs: 10800000,
         firstActivityDate: "2024-10-01",
         lastActivityDate: "2024-12-20"
       }
     }
   }
-}
+};
 ```
 
-### Step 2.2: Navigate to Import
-`mcp__playwright__browser_navigate` to http://localhost:3000/import#[encoded-data-A]
+### 2.2 Navigate to Import
+```
+mcp__playwright__browser_navigate: http://localhost:3000/import#[ENCODED_USER_A_DATA]
+mcp__playwright__browser_snapshot
+```
 
-### Step 2.3: Verify Stats Preview
-Use `mcp__playwright__browser_snapshot`:
-- [ ] Total Tokens: ~12M
-- [ ] Sessions: ~300
-- [ ] Tools: claude_code
+### 2.3 Verify Stats Preview
+- [ ] IMP-01: Shows ~12M tokens, 300 sessions
+- [ ] IMP-02: GitHub button visible
+- [ ] IMP-03: Anonymous option visible
 
-### Step 2.4: Complete Anonymous Registration
-1. Click "Continue without login"
-2. Fill form:
-   - Display Name: "Power Coder Alice"
-   - Company: "Anthropic Labs"
-3. Click "Save Profile"
-4. **CAPTURE**: Note the anonymousId from redirect URL → `USER_A_ID`
+### 2.4 Complete Registration
+```
+mcp__playwright__browser_click: element="Continue without login", ref="[ref]"
+mcp__playwright__browser_type: element="Display Name", ref="[ref]", text="Power Coder Alice"
+mcp__playwright__browser_type: element="Company", ref="[ref]", text="Anthropic Labs"
+mcp__playwright__browser_click: element="Save Profile", ref="[ref]"
+mcp__playwright__browser_wait_for: text="Power Coder Alice"
+mcp__playwright__browser_snapshot
+```
 
-### Step 2.5: Verify Redirect
-Use `mcp__playwright__browser_snapshot`:
-- [ ] URL is /u/[USER_A_ID]
+### 2.5 Capture User A ID
+**USER_A_ID:** [note from URL: /u/XXXXX]
+
+### 2.6 Verify Redirect
+- [ ] IMP-06: Redirected to /u/[USER_A_ID]
 - [ ] Profile shows "Power Coder Alice"
 
-### Step 2.6: Screenshot
-`mcp__playwright__browser_take_screenshot` filename="2-user-a-created.png"
+### 2.7 Screenshot
+```
+mcp__playwright__browser_take_screenshot: filename="2-user-a-created.png"
+```
 
 ---
 
-## Phase 3: Homepage Connected (As User A)
+## Phase 3: Homepage (Authenticated)
 
-### Step 3.1: Navigate to Homepage
-`mcp__playwright__browser_navigate` to http://localhost:3000
+### 3.1 Navigate to Homepage
+```
+mcp__playwright__browser_navigate: http://localhost:3000
+mcp__playwright__browser_snapshot
+```
 
-### Step 3.2: Verify Connected State
-Use `mcp__playwright__browser_snapshot`:
-- [ ] "My Profile" button IS visible
-- [ ] User A highlighted in leaderboard
+### 3.2 Verify Authenticated State
+- [ ] HPA-01: "My Profile" button IS visible
+- [ ] HPA-02: User A highlighted in leaderboard
 
-### Step 3.3: Test Profile Button
-1. Click "My Profile"
-2. Verify navigation to /u/[USER_A_ID]
+### 3.3 Test Profile Navigation
+```
+mcp__playwright__browser_click: element="My Profile button", ref="[ref]"
+mcp__playwright__browser_snapshot
+```
+- [ ] HPA-03: Navigated to /u/[USER_A_ID]
 
-### Step 3.4: Return to Homepage
-`mcp__playwright__browser_navigate_back`
-
-### Step 3.5: Screenshot
-`mcp__playwright__browser_take_screenshot` filename="3-homepage-connected.png"
+### 3.4 Screenshot
+```
+mcp__playwright__browser_navigate_back
+mcp__playwright__browser_take_screenshot: filename="3-homepage-auth.png"
+```
 
 ---
 
 ## Phase 4: Own Profile (User A)
 
-### Step 4.1: Navigate to Own Profile
-`mcp__playwright__browser_navigate` to http://localhost:3000/u/[USER_A_ID]
+### 4.1 Navigate to Profile
+```
+mcp__playwright__browser_navigate: http://localhost:3000/u/[USER_A_ID]
+mcp__playwright__browser_snapshot
+```
 
-### Step 4.2: Verify All Sections
-Use `mcp__playwright__browser_snapshot`:
+### 4.2 Verify All Sections
+- [ ] PRF-01: Header - "Power Coder Alice", "Anthropic Labs", "Anonymous #..."
+- [ ] PRF-02: Stats - ~12M tokens, 300 sessions, streak, active days
+- [ ] PRF-03: Highlights - claude-sonnet-4, claude_code, ~3h session
+- [ ] PRF-04: Timeline - Oct 1 to Dec 20, 2024
+- [ ] PRF-05: Heatmap renders with activity
+- [ ] PRF-07: Fun comparison box (tokens > 10K)
 
-**Header:**
-- [ ] "Power Coder Alice"
-- [ ] "Anthropic Labs"
-- [ ] "Anonymous #[USER_A_ID]"
+### 4.3 Test Share Button
+```
+mcp__playwright__browser_click: element="Share button", ref="[ref]"
+mcp__playwright__browser_snapshot
+```
+- [ ] PRF-08: Dropdown opens
 
-**Stats Grid:**
-- [ ] Total Tokens (~12M)
-- [ ] Sessions (~300)
-- [ ] Streak
-- [ ] Active Days
+```
+mcp__playwright__browser_click: element="Copy link", ref="[ref]"
+mcp__playwright__browser_snapshot
+```
+- [ ] PRF-09: "Copied!" confirmation
 
-**Highlights:**
-- [ ] Favorite Model: claude-sonnet-4-20250514
-- [ ] Favorite Tool: claude_code
-- [ ] Longest Session: ~3h
-- [ ] Best Streak
-
-**Timeline:**
-- [ ] First: Oct 1, 2024
-- [ ] Last: Dec 20, 2024
-
-**Heatmap:**
-- [ ] Grid visible
-- [ ] Month labels
-- [ ] Color variation
-
-### Step 4.3: Test Share Button
-1. Click Share
-2. Verify dropdown
-3. Click "Copy link"
-4. Verify "Copied!"
-
-### Step 4.4: Screenshot
-`mcp__playwright__browser_take_screenshot` filename="4-own-profile.png"
+### 4.4 Screenshot
+```
+mcp__playwright__browser_take_screenshot: filename="4-own-profile.png"
+```
 
 ---
 
-## Phase 5: Create User B (Second User)
+## Phase 5: Create User B
 
-### Step 5.1: Open New Tab
-`mcp__playwright__browser_tabs` action="new"
+### 5.1 Open New Tab
+```
+mcp__playwright__browser_tabs: action="new"
+```
 
-### Step 5.2: Generate Test Data for User B
+### 5.2 Generate User B Data
 ```javascript
-// User B - "Casual User" persona
-{
+// "Casual User" profile - lower usage
+const userB = {
   timestamp: Date.now(),
   version: 1,
   tools: {
     claude_code: {
       tool: "claude_code",
-      dailyActivity: generateDays(30), // 30 days of activity
+      dailyActivity: [
+        { date: "2024-11-15", tool: "claude_code", messageCount: 50, sessionCount: 5, totalTokens: 300000 },
+        { date: "2024-11-20", tool: "claude_code", messageCount: 40, sessionCount: 4, totalTokens: 250000 }
+      ],
       modelUsage: [
-        { model: "claude-3-5-haiku-20241022", inputTokens: 1500000, outputTokens: 500000 }
+        { model: "claude-3-5-haiku-20241022", inputTokens: 400000, outputTokens: 150000 }
       ],
       stats: {
-        totalTokens: 2000000,
-        totalSessions: 50,
-        totalMessages: 800,
-        longestSessionMs: 3600000, // 1 hour
+        totalTokens: 550000,
+        totalSessions: 9,
+        totalMessages: 90,
+        longestSessionMs: 3600000,
         firstActivityDate: "2024-11-15",
-        lastActivityDate: "2024-12-18"
+        lastActivityDate: "2024-11-20"
       }
     }
   }
-}
+};
 ```
 
-### Step 5.3: Complete Onboarding for User B
-1. Navigate to http://localhost:3000/import#[encoded-data-B]
-2. Click "Continue without login"
-3. Fill:
-   - Display Name: "Casual Coder Bob"
-   - Company: "Indie Dev"
-4. Click "Save Profile"
-5. **CAPTURE**: Note anonymousId → `USER_B_ID`
+### 5.3 Import and Register
+```
+mcp__playwright__browser_navigate: http://localhost:3000/import#[ENCODED_USER_B_DATA]
+mcp__playwright__browser_click: element="Continue without login", ref="[ref]"
+mcp__playwright__browser_type: element="Display Name", ref="[ref]", text="Casual Coder Bob"
+mcp__playwright__browser_type: element="Company", ref="[ref]", text="Indie Dev"
+mcp__playwright__browser_click: element="Save Profile", ref="[ref]"
+mcp__playwright__browser_wait_for: text="Casual Coder Bob"
+```
 
-### Step 5.4: Screenshot
-`mcp__playwright__browser_take_screenshot` filename="5-user-b-created.png"
+### 5.4 Capture User B ID
+**USER_B_ID:** [note from URL]
 
-### Step 5.5: Close Tab, Return to User A Tab
-`mcp__playwright__browser_tabs` action="close"
-(Returns to previous tab with User A context)
+### 5.5 Close Tab (Return to User A)
+```
+mcp__playwright__browser_tabs: action="close"
+```
 
 ---
 
-## Phase 6: Another User Profile (View User B as User A)
+## Phase 6: Other User Profile (View B as A)
 
-### Step 6.1: Navigate to Homepage
-`mcp__playwright__browser_navigate` to http://localhost:3000
+### 6.1 Navigate to User B
+```
+mcp__playwright__browser_navigate: http://localhost:3000/u/[USER_B_ID]
+mcp__playwright__browser_snapshot
+```
 
-### Step 6.2: Find User B in Leaderboard
-Use `mcp__playwright__browser_snapshot`:
-- Find "Casual Coder Bob" in leaderboard
+### 6.2 Verify Profile Display
+- [ ] Shows "Casual Coder Bob"
+- [ ] Shows "Indie Dev"
+- [ ] Stats show ~550K tokens
 
-### Step 6.3: Click on User B
-1. Click on User B's row
-2. Verify navigation to /u/[USER_B_ID]
-
-### Step 6.4: Verify User B's Profile
-Use `mcp__playwright__browser_snapshot`:
-- [ ] "Casual Coder Bob"
-- [ ] "Indie Dev"
-- [ ] Stats show ~2M tokens, 50 sessions
-
-### Step 6.5: Verify No Edit Capability
-- [ ] No edit buttons visible
+### 6.3 Verify No Edit
+- [ ] PRF-10: No edit buttons visible
 - [ ] Share button available
 
-### Step 6.6: Test Logo Navigation
-1. Click logo
-2. Verify return to homepage
-3. Verify still logged in as User A
-
-### Step 6.7: Screenshot
-`mcp__playwright__browser_take_screenshot` filename="6-another-user-profile.png"
+### 6.4 Screenshot
+```
+mcp__playwright__browser_take_screenshot: filename="6-other-profile.png"
+```
 
 ---
 
-## Phase 7: Responsive Testing
+## Phase 7: Responsive Design
 
-### Step 7.1: Mobile (375x667)
-1. `mcp__playwright__browser_resize` width=375 height=667
-2. Navigate to http://localhost:3000
-3. Snapshot - verify layout
-4. Navigate to /u/[USER_A_ID]
-5. Snapshot - verify profile layout
-6. Screenshot: "7a-mobile.png"
+### 7.1 Mobile
+```
+mcp__playwright__browser_resize: width=375, height=667
+mcp__playwright__browser_navigate: http://localhost:3000/u/[USER_A_ID]
+mcp__playwright__browser_snapshot
+```
+- [ ] RSP-01: No horizontal scroll
+- [ ] RSP-02: Text readable
 
-### Step 7.2: Tablet (768x1024)
-1. `mcp__playwright__browser_resize` width=768 height=1024
-2. Navigate to homepage, snapshot
-3. Navigate to profile, snapshot
-4. Screenshot: "7b-tablet.png"
+```
+mcp__playwright__browser_take_screenshot: filename="7a-mobile.png"
+```
 
-### Step 7.3: Desktop (1280x800)
-1. `mcp__playwright__browser_resize` width=1280 height=800
-2. Navigate to homepage, snapshot
-3. Navigate to profile, snapshot
-4. Screenshot: "7c-desktop.png"
+### 7.2 Tablet
+```
+mcp__playwright__browser_resize: width=768, height=1024
+mcp__playwright__browser_snapshot
+```
+- [ ] RSP-03: Layout adapts
+
+```
+mcp__playwright__browser_take_screenshot: filename="7b-tablet.png"
+```
+
+### 7.3 Desktop
+```
+mcp__playwright__browser_resize: width=1280, height=800
+mcp__playwright__browser_snapshot
+```
+- [ ] RSP-04: Full layout
+
+```
+mcp__playwright__browser_take_screenshot: filename="7c-desktop.png"
+```
 
 ---
 
 ## Phase 8: Navigation Tests
 
-### Step 8.1: URL Rewriting (if applicable with real usernames)
-Test with mock user if available:
-1. Navigate to /@sarah_codes
-2. Verify page loads or appropriate error
-3. Navigate to /sarah_codes
-4. Verify same behavior
+### 8.1 Logo Navigation
+```
+mcp__playwright__browser_click: element="logo", ref="[ref]"
+mcp__playwright__browser_snapshot
+```
+- [ ] NAV-01: Returns to homepage
 
-### Step 8.2: Reserved Paths
-1. Navigate to /api - should NOT be username
-2. Navigate to /import - should show import page
-3. Navigate to /auth/callback - should handle gracefully
+### 8.2 Reserved Paths
+```
+mcp__playwright__browser_navigate: http://localhost:3000/api
+mcp__playwright__browser_snapshot
+```
+- [ ] NAV-03: NOT rewritten as username
 
 ---
 
 ## Phase 9: Console Error Summary
 
-### Step 9.1: Collect All Console Messages
-`mcp__playwright__browser_console_messages` level="error"
+```
+mcp__playwright__browser_console_messages: level="error"
+```
 
-### Step 9.2: Document Any Errors
-List all JavaScript errors encountered across all phases.
+- [ ] CON-01: No homepage errors
+- [ ] CON-02: No import page errors
+- [ ] CON-03: No profile page errors
 
 ---
 
-## Final Report Template
+## Final Report
 
 ```markdown
-# E2E Full Test Suite Results
+# Full E2E Regression Results
 
-## Execution Date
-[timestamp]
-
-## Environment
-- URL: http://localhost:3000
-- Browser: Chromium via Playwright MCP
+## Execution
+- Date: [timestamp]
+- Duration: [X minutes]
+- Browser: Chromium (Playwright MCP)
 
 ## Users Created
-| User | Anonymous ID | Display Name | Company | Tokens |
-|------|--------------|--------------|---------|--------|
+| User | ID | Display Name | Company | Tokens |
+|------|----|--------------|---------|--------|
 | A | [USER_A_ID] | Power Coder Alice | Anthropic Labs | 12M |
-| B | [USER_B_ID] | Casual Coder Bob | Indie Dev | 2M |
+| B | [USER_B_ID] | Casual Coder Bob | Indie Dev | 550K |
 
 ## Summary
-- Total Test Cases: 40+
+- Total Tests: 35
 - Passed: X
 - Failed: Y
-- Skipped: Z
 
 ## Phase Results
 
-### Phase 1: Homepage Not Connected
-| Test | Status | Notes |
-|------|--------|-------|
-| Page Load | | |
-| No Profile Button | | |
-| CTA Copy | | |
-| Leaderboard | | |
+### Phase 1: Homepage (Unauth)
+| ID | Status |
+|----|--------|
+| HP-01 to HP-07 | |
 
-### Phase 2: Onboarding User A
-| Test | Status | Notes |
-|------|--------|-------|
-| Import Page Load | | |
-| Stats Preview | | |
-| Anonymous Form | | |
-| Redirect | | |
+### Phase 2: Import
+| ID | Status |
+|----|--------|
+| IMP-01 to IMP-06 | |
 
-### Phase 3: Homepage Connected
-| Test | Status | Notes |
-|------|--------|-------|
-| Profile Button Visible | | |
-| User Highlighted | | |
-| Navigation Works | | |
+### Phase 3: Homepage (Auth)
+| ID | Status |
+|----|--------|
+| HPA-01 to HPA-03 | |
 
 ### Phase 4: Own Profile
-| Test | Status | Notes |
-|------|--------|-------|
-| Header | | |
-| Stats Grid | | |
-| Highlights | | |
-| Timeline | | |
-| Heatmap | | |
-| Share Button | | |
+| ID | Status |
+|----|--------|
+| PRF-01 to PRF-09 | |
 
-### Phase 5: Create User B
-| Test | Status | Notes |
-|------|--------|-------|
-| Import | | |
-| Registration | | |
-| Profile Created | | |
-
-### Phase 6: Another User Profile
-| Test | Status | Notes |
-|------|--------|-------|
-| Navigation | | |
-| Profile Display | | |
-| No Edit | | |
-| Logo Navigation | | |
+### Phase 5-6: Other Profile
+| ID | Status |
+|----|--------|
+| PRF-10 | |
 
 ### Phase 7: Responsive
-| Viewport | Homepage | Profile | Notes |
-|----------|----------|---------|-------|
-| Mobile | | | |
-| Tablet | | | |
-| Desktop | | | |
+| ID | Status |
+|----|--------|
+| RSP-01 to RSP-04 | |
 
 ### Phase 8: Navigation
-| Test | Status | Notes |
-|------|--------|-------|
-| URL Rewriting | | |
-| Reserved Paths | | |
+| ID | Status |
+|----|--------|
+| NAV-01, NAV-03 | |
+
+### Phase 9: Console
+| ID | Status |
+|----|--------|
+| CON-01 to CON-03 | |
+
+## Screenshots
+1. 1-homepage-unauth.png
+2. 2-user-a-created.png
+3. 3-homepage-auth.png
+4. 4-own-profile.png
+5. 6-other-profile.png
+6. 7a-mobile.png
+7. 7b-tablet.png
+8. 7c-desktop.png
 
 ## Console Errors
-[List all errors or "None found"]
+[List all or "None"]
 
-## Screenshots Taken
-1. 1-homepage-not-connected.png
-2. 2-user-a-created.png
-3. 3-homepage-connected.png
-4. 4-own-profile.png
-5. 5-user-b-created.png
-6. 6-another-user-profile.png
-7. 7a-mobile.png
-8. 7b-tablet.png
-9. 7c-desktop.png
-
-## Recommendations
-[List any issues found and suggested fixes]
-
-## Overall Status: PASS / FAIL
+## Overall: PASS / FAIL
 ```
-
----
-
-## Notes
-
-- This suite creates 2 test users in the database
-- Tests should be run in sequence (dependencies between phases)
-- Screenshots are stored in .playwright-mcp/ directory
-- If any phase fails, document and continue with remaining phases
-- Can be re-run by starting with a new browser session

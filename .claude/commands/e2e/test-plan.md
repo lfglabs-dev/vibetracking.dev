@@ -1,282 +1,134 @@
-# Vibetracking E2E Test Plan
+# E2E Test Plan - Reference Document
 
-## Overview
-Comprehensive end-to-end testing for the vibetracking application covering all user flows, authentication states, and page interactions.
+This document defines the test suites and test cases for vibetracking.dev. It serves as a **reference only** - use the specific test commands to execute tests.
+
+## Test Command Structure
+
+| Command | Purpose | Prerequisites |
+|---------|---------|---------------|
+| `/e2e/test-quick` | Fast smoke test (~2 min) | Dev server running |
+| `/e2e/test-homepage` | Homepage tests (auth + unauth) | Dev server running |
+| `/e2e/test-import` | Import page flow | Dev server running |
+| `/e2e/test-profile` | Profile page tests | Dev server + test user created |
+| `/e2e/test-full-suite` | Complete regression suite | Dev server running |
 
 ## Prerequisites
-- Dev server running at http://localhost:3000
-- Playwright MCP tools available
-- Test data generation capability (pako + base64url encoding)
 
----
+1. **Dev server running**: `pnpm dev` at http://localhost:3000
+2. **Playwright MCP available**: Browser automation tools
+3. **For authenticated tests**: Either create test user via `/e2e/test-import` first, or use Bitwarden credentials
 
-## Test Suite 1: Homepage (Not Connected)
+## Test Suites Overview
 
-### TC1.1: Page Load and Layout
-- Navigate to http://localhost:3000
-- Verify logo displays "vibetracking" (pink "vibe" + green "tracking")
-- Verify headline "Are you a good vibe Coder?" is visible
-- Verify animated arrow pointing to CTA box
-- Verify decorative stickers are positioned correctly
+### Suite 1: Homepage (Unauthenticated)
+Tests for users who are NOT logged in.
 
-### TC1.2: CTA Box
-- Verify command box shows `bunx vibetracking`
-- Click copy button
-- Verify "Copied!" confirmation appears
-- Verify text changes back after ~2 seconds
+| ID | Test Case | Priority |
+|----|-----------|----------|
+| HP-01 | Logo displays correctly | High |
+| HP-02 | Headline "Are you a good vibe Coder?" visible | High |
+| HP-03 | CTA box with `bunx vibetracking` visible | High |
+| HP-04 | Copy button works (copies, shows "Copied!", reverts) | Medium |
+| HP-05 | Leaderboard table visible with columns | High |
+| HP-06 | Top 3 users have medal emojis | Low |
+| HP-07 | "My Profile" button is NOT visible | High |
+| HP-08 | Clicking leaderboard row navigates to profile | Medium |
 
-### TC1.3: Leaderboard Display (Not Connected)
-- Verify leaderboard table is visible
-- Verify columns: Rank, Vibe Coder, Company, Est. API Spend, Sessions, Streak
-- Verify top 3 have medal emojis (🥇🥈🥉)
-- Verify at least mock data displays if no real users
+### Suite 2: Homepage (Authenticated)
+Tests for logged-in users.
 
-### TC1.4: No Profile Button When Not Connected
-- Verify "My Profile" button is NOT visible in header
-- Verify no authenticated UI elements
+| ID | Test Case | Priority |
+|----|-----------|----------|
+| HPA-01 | "My Profile" button IS visible | High |
+| HPA-02 | Current user highlighted in leaderboard | Medium |
+| HPA-03 | Profile button navigates to own profile | High |
 
-### TC1.5: Leaderboard Row Navigation
-- Click on any leaderboard row
-- Verify navigation to that user's profile page
-- Verify URL changes to /user/[username] or /u/[id]
+### Suite 3: Import Page
+Tests for the data import flow.
 
----
+| ID | Test Case | Priority |
+|----|-----------|----------|
+| IMP-01 | Stats preview displays (tokens, sessions, tools) | High |
+| IMP-02 | "Continue with GitHub" button visible | High |
+| IMP-03 | "Continue without login" option visible | High |
+| IMP-04 | Anonymous form expands on click | Medium |
+| IMP-05 | Form validation (Display Name required) | High |
+| IMP-06 | Successful registration redirects to profile | High |
+| IMP-07 | Error: No hash shows "No data found" | Medium |
+| IMP-08 | Error: Invalid hash shows error message | Medium |
 
-## Test Suite 2: Homepage (Connected)
+### Suite 4: Profile Page
+Tests for user profile display.
 
-### TC2.1: Setup - Create Anonymous User
-- Generate test import data
-- Navigate to /import#[encoded-data]
-- Complete anonymous registration
-- Store anonymousId for later tests
+| ID | Test Case | Priority |
+|----|-----------|----------|
+| PRF-01 | Header shows display name, company, username | High |
+| PRF-02 | Stats grid: Total Tokens, Sessions, Streak, Active Days | High |
+| PRF-03 | Highlights: Favorite Model, Tool, Longest Session, Best Streak | High |
+| PRF-04 | Timeline: First Activity, Last Activity dates | Medium |
+| PRF-05 | Activity heatmap renders (365 days) | High |
+| PRF-06 | Heatmap tooltip shows date and tokens on hover | Low |
+| PRF-07 | Fun comparison box (if tokens > 10K) | Low |
+| PRF-08 | Share button opens dropdown | Medium |
+| PRF-09 | "Copy link" copies URL and shows confirmation | Medium |
+| PRF-10 | No edit buttons on another user's profile | High |
 
-### TC2.2: Homepage After Login
-- Navigate to http://localhost:3000
-- Verify "My Profile" button is visible in header
-- Verify button links to /u/[anonymousId]
+### Suite 5: Responsive Design
+Tests for different viewport sizes.
 
-### TC2.3: Current User Highlight in Leaderboard
-- Verify current user's row has highlighted background (light green)
-- Verify hover effect on other rows
+| ID | Test Case | Priority |
+|----|-----------|----------|
+| RSP-01 | Mobile (375x667): No horizontal scroll | High |
+| RSP-02 | Mobile: Text readable, layout stacked | Medium |
+| RSP-03 | Tablet (768x1024): Stats grid adjusts | Medium |
+| RSP-04 | Desktop (1280x800): Full layout with stickers | Medium |
 
-### TC2.4: Profile Button Click
-- Click "My Profile" button
-- Verify navigation to /u/[anonymousId]
-- Verify profile page loads correctly
+### Suite 6: Navigation & URLs
+Tests for URL handling and navigation.
 
----
+| ID | Test Case | Priority |
+|----|-----------|----------|
+| NAV-01 | Logo click returns to homepage | High |
+| NAV-02 | /@username rewrites to /user/username | High |
+| NAV-03 | Reserved paths not rewritten (/api, /import, /auth) | High |
 
-## Test Suite 3: Own Profile Page (Connected)
+### Suite 7: Console Errors
+Check for JavaScript errors on all pages.
 
-### TC3.1: Profile Header
-- Navigate to /u/[anonymousId]
-- Verify display name shows correctly
-- Verify company shows if set
-- Verify username shows as "Anonymous #[id]"
-- Verify avatar/initials circle displays
+| ID | Test Case | Priority |
+|----|-----------|----------|
+| CON-01 | Homepage: No JS errors | High |
+| CON-02 | Import page: No JS errors | High |
+| CON-03 | Profile page: No JS errors | High |
 
-### TC3.2: Stats Grid
-- Verify 4-column stats grid on desktop:
-  - Total Tokens (formatted number)
-  - Sessions (formatted number)
-  - Current Streak (X days)
-  - Active Days (calculated)
+## Standard Test Data
 
-### TC3.3: Highlights Card
-- Verify Favorite Model displays with tag
-- Verify Favorite Tool displays
-- Verify Longest Session formatted as hours/minutes
-- Verify Best Streak in days
-
-### TC3.4: Timeline Card
-- Verify First Activity date
-- Verify Last Activity date
-
-### TC3.5: Activity Heatmap
-- Verify 365-day heatmap renders
-- Verify month labels (Jan-Dec)
-- Verify day labels (Mon, Wed, Fri)
-- Verify color intensity varies with activity
-- Verify tooltip on hover shows date and tokens
-
-### TC3.6: Fun Comparison (if totalTokens > 10,000)
-- Verify fun comparison box displays
-- Verify random comparison text (novels, tweets, marathons, etc.)
-
-### TC3.7: Share Button
-- Click share button
-- Verify dropdown opens with 2 options:
-  - Copy link
-  - Share to X
-- Click "Copy link"
-- Verify "Copied!" confirmation
-- Verify dropdown closes
-
----
-
-## Test Suite 4: Another User's Profile
-
-### TC4.1: Navigate to Different User
-- From homepage leaderboard, click on a different user
-- Verify navigation to their profile
-
-### TC4.2: Profile Data Display
-- Verify all profile sections display:
-  - Header with name/username
-  - Stats grid
-  - Highlights
-  - Timeline
-  - Activity heatmap
-
-### TC4.3: No Edit Capabilities
-- Verify no edit buttons or forms on another user's profile
-- Verify share button still available
-
-### TC4.4: URL Rewriting Test
-- Navigate to /@username format
-- Verify page loads correctly
-- Verify URL rewritten to /user/username
-
----
-
-## Test Suite 5: Import Page Flow
-
-### TC5.1: Import Page with Valid Data
-- Generate test import data
-- Navigate to /import#[encoded-data]
-- Verify stats preview displays:
-  - Tools found (claude_code icon)
-  - Total Tokens
-  - Sessions
-  - Messages
-  - Longest Session
-  - Favorite Model
-
-### TC5.2: Auth Options Display
-- Verify "Continue with GitHub" button
-- Verify "Continue without login" option
-
-### TC5.3: Anonymous Registration Form
-- Click "Continue without login"
-- Verify form expands with:
-  - Display Name input (required)
-  - Company input (optional)
-- Fill Display Name
-- Fill Company
-- Click "Save Profile"
-- Verify redirect to /u/[anonymousId]
-
-### TC5.4: Import Error Handling
-- Navigate to /import (no hash)
-- Verify error message: "No data found. Please run `bunx vibetracking` first."
-- Verify "Go Home" button available
-
----
-
-## Test Suite 6: Responsive Design
-
-### TC6.1: Mobile (375x667)
-- Resize browser to 375x667
-- Test homepage layout
-- Test profile page layout
-- Verify no horizontal scroll
-- Verify text readable
-- Verify leaderboard scrollable
-
-### TC6.2: Tablet (768x1024)
-- Resize browser to 768x1024
-- Test all pages
-- Verify stats grid adjusts columns
-
-### TC6.3: Desktop (1280x800)
-- Resize browser to 1280x800
-- Test all pages
-- Verify full layout with stickers
-
----
-
-## Test Suite 7: Navigation & Links
-
-### TC7.1: Logo Navigation
-- From any page, click logo
-- Verify navigation to homepage
-
-### TC7.2: Reserved Paths
-- Navigate to /api/test - should NOT rewrite
-- Navigate to /import - should NOT rewrite
-- Navigate to /auth/callback - should NOT rewrite
-
-### TC7.3: Clean URL Support
-- Navigate to /[username] (without @)
-- Verify rewrite to /user/[username]
-- Verify page loads correctly
-
----
-
-## Test Suite 8: Console Errors Check
-
-### TC8.1: Homepage Console
-- Navigate to homepage
-- Check console messages
-- Report any errors/warnings
-
-### TC8.2: Profile Console
-- Navigate to profile page
-- Check console messages
-- Report any errors/warnings
-
-### TC8.3: Import Console
-- Navigate to import page
-- Check console messages
-- Report any errors/warnings
-
----
-
-## Execution Order
-
-1. **Test Suite 1** - Homepage Not Connected (baseline)
-2. **Test Suite 5** - Import Page (creates test user)
-3. **Test Suite 2** - Homepage Connected
-4. **Test Suite 3** - Own Profile
-5. **Test Suite 4** - Another User Profile
-6. **Test Suite 6** - Responsive Design
-7. **Test Suite 7** - Navigation
-8. **Test Suite 8** - Console Errors
-
----
-
-## Test Data Generation
+Use this data structure for all tests requiring import data:
 
 ```typescript
-// Generate import data inline
-const data = {
+const testData = {
   timestamp: Date.now(),
   version: 1,
   tools: {
     claude_code: {
       tool: "claude_code",
-      dailyActivity: [...], // 60-90 days
+      dailyActivity: generateDays(60), // 60 days
       modelUsage: [
-        { model: "claude-sonnet-4-20250514", inputTokens: X, outputTokens: Y },
-        { model: "claude-3-5-haiku-20241022", inputTokens: A, outputTokens: B }
+        { model: "claude-sonnet-4-20250514", inputTokens: 5000000, outputTokens: 2000000, cacheReadTokens: 3000000 },
+        { model: "claude-3-5-haiku-20241022", inputTokens: 800000, outputTokens: 200000 }
       ],
       stats: {
-        totalTokens: N,
-        totalSessions: M,
-        totalMessages: P,
-        longestSessionMs: T,
-        firstActivityDate: "YYYY-MM-DD",
-        lastActivityDate: "YYYY-MM-DD"
+        totalTokens: 11000000,
+        totalSessions: 250,
+        totalMessages: 5000,
+        longestSessionMs: 7200000, // 2 hours
+        firstActivityDate: "2024-10-15",
+        lastActivityDate: "2024-12-20"
       }
     }
   }
 };
-
-// Encode: gzip + base64url
-const encoded = base64url(gzip(JSON.stringify(data)));
 ```
-
----
 
 ## Report Template
 
@@ -286,7 +138,7 @@ const encoded = base64url(gzip(JSON.stringify(data)));
 ### Environment
 - Date: [timestamp]
 - URL: http://localhost:3000
-- Browser: Chromium (Playwright)
+- Browser: Chromium (Playwright MCP)
 
 ### Summary
 - Total: X tests
@@ -294,16 +146,13 @@ const encoded = base64url(gzip(JSON.stringify(data)));
 - Failed: Z
 
 ### Results
-| Test ID | Description | Status | Notes |
-|---------|-------------|--------|-------|
-| TC1.1   | Page Load   | PASS   |       |
-
-### Screenshots
-- [List any screenshots taken]
+| ID | Description | Status | Notes |
+|----|-------------|--------|-------|
+| XX-01 | Test name | PASS/FAIL | |
 
 ### Console Errors
-- [List any JS errors found]
+[List any JS errors or "None"]
 
-### Recommendations
-- [Actionable fixes if any]
+### Screenshots
+[List screenshots taken]
 ```
