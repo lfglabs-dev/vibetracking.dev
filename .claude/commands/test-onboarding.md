@@ -1,92 +1,104 @@
-# Test Vibe Tracking Onboarding Flow
+# Quick Onboarding Test
 
-You are testing the complete vibe tracking onboarding flow end-to-end using Playwright MCP tools.
+Fast test of the complete onboarding flow using Playwright MCP. Takes ~2-3 minutes.
 
-> **Note:** This is the quick onboarding test. For comprehensive E2E testing, see:
-> - `/e2e/test-full-suite` - Complete test suite with all scenarios
-> - `/e2e/test-homepage-not-connected` - Homepage without auth
-> - `/e2e/test-homepage-connected` - Homepage with auth
-> - `/e2e/test-own-profile` - Own profile page tests
-> - `/e2e/test-another-user-profile` - Viewing other users' profiles
-> - `/e2e/test-import-page` - Import page flow tests
+> **Note:** This is equivalent to `/e2e/test-quick`. For comprehensive testing, see:
+> - `/e2e/test-full-suite` - Complete regression suite
+> - `/e2e/test-homepage` - Homepage (auth + unauth)
+> - `/e2e/test-import` - Import page flow
+> - `/e2e/test-profile` - Profile page tests
+> - `/test-cli` - CLI package manual testing
 
 ## Prerequisites
-- The dev server must be running at http://localhost:3000
-- If not running, inform the user to start it with `npm run dev`
+- Dev server running at http://localhost:3000
+- If not running: `pnpm dev`
 
 ## Test Flow
 
 ### Step 1: Generate Test Data
-Generate encoded test data inline (gzip + base64url) with realistic stats:
-- 60-90 days of daily activity
-- Multiple models (claude-sonnet-4, claude-3-5-haiku)
-- Total tokens: 5-20 million
-- Sessions: 100-500
-- Use pako for compression, then base64url encode
+Generate encoded test data inline (gzip + base64url):
+
+```javascript
+const data = {
+  timestamp: Date.now(),
+  version: 1,
+  tools: {
+    claude_code: {
+      tool: "claude_code",
+      dailyActivity: [
+        { date: "2024-12-10", tool: "claude_code", messageCount: 80, sessionCount: 8, totalTokens: 500000 },
+        { date: "2024-12-11", tool: "claude_code", messageCount: 60, sessionCount: 6, totalTokens: 400000 }
+      ],
+      modelUsage: [
+        { model: "claude-sonnet-4-20250514", inputTokens: 600000, outputTokens: 300000 }
+      ],
+      stats: {
+        totalTokens: 900000,
+        totalSessions: 14,
+        totalMessages: 140,
+        longestSessionMs: 5400000,
+        firstActivityDate: "2024-12-10",
+        lastActivityDate: "2024-12-11"
+      }
+    }
+  }
+};
+// Encode: gzip(JSON.stringify(data)) → base64url
+```
 
 ### Step 2: Navigate to Import Page
-Use `mcp__playwright__browser_navigate` to go to:
 ```
-http://localhost:3000/import#<encoded-data>
+mcp__playwright__browser_navigate: http://localhost:3000/import#[ENCODED_DATA]
+mcp__playwright__browser_snapshot
 ```
 
-### Step 3: Verify Stats Preview
-Use `mcp__playwright__browser_snapshot` to verify:
-- Page loaded without errors
-- Stats preview shows total tokens
-- Stats preview shows sessions count
-- Stats preview shows tools found (claude_code)
+**Verify:**
+- [ ] Stats preview shows ~900K tokens
+- [ ] Auth buttons visible
 
-### Step 4: Fill Anonymous Registration Form
-1. Look for "Continue without login" option
-2. Use `mcp__playwright__browser_click` to expand anonymous form if needed
-3. Use `mcp__playwright__browser_type` or `mcp__playwright__browser_fill_form` to fill:
-   - Display Name: "E2E Test User"
-   - Company: "Test Company"
-
-### Step 5: Submit and Wait for Redirect
-1. Click the submit button for anonymous registration
-2. Use `mcp__playwright__browser_wait_for` to wait for navigation to `/u/` profile page
-3. Take a snapshot to verify the profile page loaded
-
-### Step 6: Verify Profile Page
-Use `mcp__playwright__browser_snapshot` to verify:
-- Profile displays the correct display name
-- Stats grid shows tokens, sessions, streak, active days
-- Activity heatmap is present
-- No console errors (check with `mcp__playwright__browser_console_messages`)
-
-### Step 7: Take Screenshot
-Use `mcp__playwright__browser_take_screenshot` to capture the final profile page for visual verification.
-
-## Report Results
-After completing all steps, provide a summary:
+### Step 3: Complete Anonymous Registration
 ```
-## E2E Test Results: Onboarding Flow
+mcp__playwright__browser_click: element="Continue without login", ref="[ref]"
+mcp__playwright__browser_type: element="Display Name", ref="[ref]", text="Onboarding Test User"
+mcp__playwright__browser_type: element="Company", ref="[ref]", text="Test Corp"
+mcp__playwright__browser_click: element="Save Profile", ref="[ref]"
+mcp__playwright__browser_wait_for: text="Onboarding Test User"
+mcp__playwright__browser_snapshot
+```
 
-### Steps Completed
-- [ ] Import page loaded with test data
-- [ ] Stats preview displayed correctly
-- [ ] Anonymous form filled
-- [ ] Form submitted successfully
+**Verify:**
 - [ ] Redirected to profile page
-- [ ] Profile displays correct data
+- [ ] "Onboarding Test User" displayed
+- [ ] Stats visible
 
-### Console Errors
-[List any errors found]
-
-### Screenshots
-[Reference any screenshots taken]
-
-### Status: PASS/FAIL
+### Step 4: Check Console
+```
+mcp__playwright__browser_console_messages: level="error"
 ```
 
-## Error Handling
-- If any step fails, take a screenshot and report the error
-- Check console messages for JavaScript errors
-- If the server is not running, ask the user to start it
+**Verify:**
+- [ ] No JavaScript errors
 
-## Important Notes
-- Use the anonymous flow (not GitHub OAuth) for automated testing
-- Generate a unique test each time with randomized data
-- Clean up by closing the browser tab when done
+### Step 5: Screenshot
+```
+mcp__playwright__browser_take_screenshot: filename="onboarding-test.png"
+```
+
+## Report
+
+```markdown
+## Onboarding Test Results
+
+- Date: [timestamp]
+
+| Step | Status |
+|------|--------|
+| Import page loads | |
+| Stats preview correct | |
+| Anonymous form works | |
+| Registration succeeds | |
+| Profile displays | |
+| No console errors | |
+
+**Status: PASS / FAIL**
+```
