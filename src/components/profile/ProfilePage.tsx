@@ -7,8 +7,8 @@ import { FunComparison } from "@/components/dashboard/FunComparison";
 import { UsageByToolChart } from "@/components/dashboard/UsageByToolChart";
 import { UsageByModelChart } from "@/components/dashboard/UsageByModelChart";
 import { UnitToggle, type DisplayUnit } from "@/components/dashboard/UnitToggle";
-import { ShareButton } from "@/components/share/ShareButton";
 import { ChallengeUserButton } from "@/components/challenge/ChallengeUserButton";
+import { ChallengeAFriendButton } from "@/components/challenge/ChallengeAFriendButton";
 import { Logo } from "@/components/shared/Logo";
 import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
 import { formatModelName } from "@/lib/formatModelName";
@@ -194,18 +194,19 @@ export function ProfilePage({
 
           <div className="flex items-center gap-3">
             <UnitToggle value={displayUnit} onChange={setDisplayUnit} />
-            {!isOwnProfile && currentUsername && stats && (
-              <ChallengeUserButton
-                myUsername={currentUsername}
-                opponentUsername={user.username}
-                opponentDisplayName={user.displayName || undefined}
-              />
+            {isOwnProfile ? (
+              // Own profile: show "Challenge a friend" button (with share icon)
+              <ChallengeAFriendButton username={user.username} />
+            ) : (
+              // Other's profile: show Challenge button only (with lightning icon)
+              currentUsername && stats && (
+                <ChallengeUserButton
+                  myUsername={currentUsername}
+                  opponentUsername={user.username}
+                  opponentDisplayName={user.displayName || undefined}
+                />
+              )
             )}
-            <ShareButton
-              url={typeof window !== "undefined" ? `${window.location.origin}${profileUrl}` : profileUrl}
-              title={`${displayName}'s AI coding stats`}
-              stats={stats ? { totalTokens: stats.totalTokens, totalSessions: stats.totalSessions } : undefined}
-            />
           </div>
         </header>
 
