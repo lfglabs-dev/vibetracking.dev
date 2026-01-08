@@ -35,10 +35,11 @@ export async function generateMetadata({
   const challengedName =
     challengedStats.displayName || challengedStats.username;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vibetracking.dev";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.vibetracking.dev";
+  // Cache buster for X/Twitter - increment when OG image needs refresh
   const ogUrl = trash
-    ? `${baseUrl}/og/battle/${slug}?trash=${trash}`
-    : `${baseUrl}/og/battle/${slug}`;
+    ? `${baseUrl}/og/battle/${slug}?trash=${trash}&v=2`
+    : `${baseUrl}/og/battle/${slug}?v=2`;
 
   const trashTalkId = trash ? parseInt(trash, 10) : undefined;
   const description =

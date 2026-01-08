@@ -189,14 +189,18 @@ export function ProfilePage({
 
         <div className="relative z-10">
         {/* Header */}
-        <header className="flex items-center justify-between mb-8">
+        <header className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <Logo />
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <UnitToggle value={displayUnit} onChange={setDisplayUnit} />
             {isOwnProfile ? (
               // Own profile: show "Challenge a friend" button (with share icon)
-              <ChallengeAFriendButton username={user.username} />
+              <ChallengeAFriendButton
+                username={user.username}
+                displayName={user.displayName || undefined}
+                estimatedSpend={estimatedApiSpend}
+              />
             ) : (
               // Other's profile: show Challenge button only (with lightning icon)
               currentUsername && stats && (
@@ -212,22 +216,22 @@ export function ProfilePage({
 
         {/* Profile Header */}
         <div className="card mb-8">
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={displayName}
-                className="w-20 h-20 rounded-full border-2 border-[#232323]"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-[#232323] flex-shrink-0"
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-[#FEA6CC] border-2 border-[#232323] flex items-center justify-center text-2xl font-bold text-[#232323]">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#FEA6CC] border-2 border-[#232323] flex items-center justify-center text-xl sm:text-2xl font-bold text-[#232323] flex-shrink-0">
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
-            <div>
-              <h2 className="text-2xl font-bold">{displayName}</h2>
+            <div className="text-center sm:text-left flex-1 min-w-0">
+              <h2 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h2>
               {user.company && (
-                <p className="text-[#232323]/60">{user.company}</p>
+                <p className="text-[#232323]/60 text-sm sm:text-base truncate">{user.company}</p>
               )}
               <p className="text-sm text-[#232323]/40">@{user.username}</p>
             </div>
@@ -235,7 +239,7 @@ export function ProfilePage({
               href={`https://github.com/${user.username}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto flex-shrink-0 hover:opacity-80 transition-opacity"
+              className="flex-shrink-0 hover:opacity-80 transition-opacity hidden sm:block"
             >
               <svg className="w-8 h-8 text-[#232323]" fill="currentColor" viewBox="0 0 24 24">
                 <path

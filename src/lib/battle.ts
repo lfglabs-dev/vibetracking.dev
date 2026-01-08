@@ -31,7 +31,7 @@ export function getBattleUrl(
   user2: string,
   trashTalkId?: number
 ): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vibetracking.dev";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.vibetracking.dev";
   const slug = `@${user1}-vs-@${user2}`;
   const url = `${baseUrl}/battle/${slug}`;
   if (trashTalkId !== undefined && isValidTrashTalkId(trashTalkId)) {

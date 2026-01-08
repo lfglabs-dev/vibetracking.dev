@@ -8,6 +8,26 @@ import { createClient } from "@/lib/supabase/client";
 import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
 import { Logo } from "@/components/shared/Logo";
 
+// Sticker positions around the card
+const cardStickers = [
+  { src: "/stickers/vibe.webp", className: "absolute -top-20 -left-28 -rotate-12", size: 160, delay: 100 },
+  { src: "/stickers/rainbow.webp", className: "absolute -top-16 -right-24 rotate-12", size: 144, delay: 200 },
+  { src: "/stickers/cursor.webp", className: "absolute top-1/4 -left-32 -rotate-6", size: 128, delay: 300 },
+  { src: "/stickers/banana.webp", className: "absolute top-1/3 -right-28 rotate-6", size: 128, delay: 400 },
+  { src: "/stickers/cloud.webp", className: "absolute -bottom-20 -left-24 rotate-12", size: 144, delay: 500 },
+  { src: "/stickers/jensen.webp", className: "absolute -bottom-16 -right-28 -rotate-12", size: 160, delay: 600 },
+];
+
+// Extra stickers scattered around the page
+const pageStickers = [
+  { src: "/stickers/elon.webp", className: "fixed top-8 left-8 rotate-12", size: 120, delay: 700 },
+  { src: "/stickers/marck.webp", className: "fixed top-12 right-12 -rotate-6", size: 140, delay: 800 },
+  { src: "/stickers/no_em_dashes.webp", className: "fixed bottom-24 left-12 rotate-6", size: 130, delay: 900 },
+  { src: "/stickers/vibe.webp", className: "fixed bottom-16 right-8 -rotate-12", size: 110, delay: 1000 },
+  { src: "/stickers/rainbow.webp", className: "fixed top-1/3 left-4 rotate-12", size: 100, delay: 1100 },
+  { src: "/stickers/cloud.webp", className: "fixed top-1/2 right-4 -rotate-6", size: 110, delay: 1200 },
+];
+
 function ImportPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,62 +165,31 @@ function ImportPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-8 px-4">
+    <div className="min-h-screen flex items-center justify-center py-8 px-4 overflow-hidden">
+      {/* Page stickers scattered around */}
+      {pageStickers.map((sticker, index) => (
+        <AnimatedSticker
+          key={`page-${index}`}
+          src={sticker.src}
+          width={sticker.size}
+          height={sticker.size}
+          className={sticker.className}
+          delay={sticker.delay}
+        />
+      ))}
+
       <div className="max-w-md mx-auto w-full relative">
-        {/* Stickers - positioned in a circle around the form with more spacing */}
-        <div
-          className="pointer-events-none select-none absolute inset-0 z-0 overflow-visible"
-          aria-hidden="true"
-        >
-          {/* Top left - 10 o'clock position */}
+        {/* Stickers around the card */}
+        {cardStickers.map((sticker, index) => (
           <AnimatedSticker
-            src="/stickers/vibe.webp"
-            width={200}
-            height={200}
-            className="absolute -top-32 -left-40 md:-left-56 lg:-left-72 w-40 md:w-48 lg:w-52 rotate-[-12deg] drop-shadow-lg"
-            delay={100}
+            key={`card-${index}`}
+            src={sticker.src}
+            width={sticker.size}
+            height={sticker.size}
+            className={sticker.className}
+            delay={sticker.delay}
           />
-          {/* Top right - 2 o'clock position */}
-          <AnimatedSticker
-            src="/stickers/rainbow.webp"
-            width={200}
-            height={200}
-            className="absolute -top-28 -right-36 md:-right-56 lg:-right-72 w-40 md:w-48 lg:w-52 rotate-[15deg] drop-shadow-lg"
-            delay={200}
-          />
-          {/* Left side - 9 o'clock position */}
-          <AnimatedSticker
-            src="/stickers/cursor.webp"
-            width={160}
-            height={160}
-            className="absolute top-1/3 -left-36 md:-left-52 lg:-left-64 w-32 md:w-40 lg:w-44 rotate-[8deg] hidden sm:block drop-shadow-lg"
-            delay={300}
-          />
-          {/* Right side - 3 o'clock position */}
-          <AnimatedSticker
-            src="/stickers/banana.webp"
-            width={160}
-            height={160}
-            className="absolute top-1/3 -right-36 md:-right-52 lg:-right-64 w-32 md:w-40 lg:w-44 rotate-[-8deg] hidden sm:block drop-shadow-lg"
-            delay={400}
-          />
-          {/* Bottom left - 8 o'clock position */}
-          <AnimatedSticker
-            src="/stickers/cloud.webp"
-            width={140}
-            height={140}
-            className="absolute -bottom-8 -left-32 md:-left-48 lg:-left-60 w-28 md:w-36 lg:w-40 rotate-[10deg] hidden md:block drop-shadow-lg"
-            delay={500}
-          />
-          {/* Bottom right - 4 o'clock position */}
-          <AnimatedSticker
-            src="/stickers/jensen.webp"
-            width={160}
-            height={160}
-            className="absolute -bottom-4 -right-32 md:-right-52 lg:-right-64 w-32 md:w-40 lg:w-44 rotate-[-10deg] hidden md:block drop-shadow-lg"
-            delay={600}
-          />
-        </div>
+        ))}
 
         <div className="relative z-10">
           {/* Header with Logo */}

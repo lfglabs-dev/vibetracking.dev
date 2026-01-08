@@ -21,7 +21,7 @@ export function BattleComparison({
   const challengerName = challenger.displayName || challenger.username;
   const challengedName = challenged.displayName || challenged.username;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vibetracking.dev";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.vibetracking.dev";
   const battleUrl = `${baseUrl}/battle/${battleSlug}`;
 
   return (
