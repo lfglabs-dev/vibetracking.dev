@@ -123,6 +123,7 @@ export default async function UserProfilePage({ params }: PageParams) {
             outputTokens: t.output_tokens,
           }))}
           isOwnProfile={false}
+          currentUsername={authUser?.user_metadata?.user_name}
         />
       );
     }
@@ -229,6 +230,7 @@ export default async function UserProfilePage({ params }: PageParams) {
         })) || []
       }
       isOwnProfile={isOwnProfile}
+      currentUsername={authUser?.user_metadata?.user_name}
     />
   );
 }

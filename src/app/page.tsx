@@ -255,7 +255,11 @@ export default async function Home() {
                 <span className="tag tag-yellow">All Time</span>
               </div>
 
-              <LeaderboardTable entries={entries} currentUserId={user?.id} />
+              <LeaderboardTable
+                entries={entries}
+                currentUserId={user?.id}
+                currentUsername={user?.user_metadata?.user_name}
+              />
             </div>
           </div>
 

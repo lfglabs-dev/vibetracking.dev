@@ -8,6 +8,7 @@ import { UsageByToolChart } from "@/components/dashboard/UsageByToolChart";
 import { UsageByModelChart } from "@/components/dashboard/UsageByModelChart";
 import { UnitToggle, type DisplayUnit } from "@/components/dashboard/UnitToggle";
 import { ShareButton } from "@/components/share/ShareButton";
+import { ChallengeUserButton } from "@/components/challenge/ChallengeUserButton";
 import { Logo } from "@/components/shared/Logo";
 import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
 import { formatModelName } from "@/lib/formatModelName";
@@ -47,6 +48,7 @@ interface ProfilePageProps {
     outputTokens: number;
   }[];
   isOwnProfile: boolean;
+  currentUsername?: string;
 }
 
 export function ProfilePage({
@@ -55,6 +57,7 @@ export function ProfilePage({
   dailyActivity,
   tokenUsage,
   isOwnProfile,
+  currentUsername,
 }: ProfilePageProps) {
   const [displayUnit, setDisplayUnit] = useState<DisplayUnit>("tokens");
 
@@ -191,6 +194,13 @@ export function ProfilePage({
 
           <div className="flex items-center gap-3">
             <UnitToggle value={displayUnit} onChange={setDisplayUnit} />
+            {!isOwnProfile && currentUsername && stats && (
+              <ChallengeUserButton
+                myUsername={currentUsername}
+                opponentUsername={user.username}
+                opponentDisplayName={user.displayName || undefined}
+              />
+            )}
             <ShareButton
               url={typeof window !== "undefined" ? `${window.location.origin}${profileUrl}` : profileUrl}
               title={`${displayName}'s AI coding stats`}

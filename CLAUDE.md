@@ -1,5 +1,24 @@
 # Vibetracking.dev - AI Coding Tool Usage Tracker
 
+## Deployment
+
+This repo is connected to **Vercel** for automatic deployments:
+
+- **Production**: https://vibetracking.dev (deploys from `main` branch)
+- **Preview**: Automatic preview deployments for all branches/PRs
+- **Vercel Project**: `lfglabs/vibetracking.dev`
+- **Dashboard**: https://vercel.com/lfglabs/vibetracking.dev
+
+### Vercel Environment Variables
+
+Environment variables are configured in Vercel dashboard for both Production and Preview environments:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `VIBETRACKING_URL`
+
+---
+
 ## The Concept
 
 **Vibetracking.dev** is a web application that tracks and visualizes AI coding tool usage statistics. It aggregates usage data from three AI coding assistants:

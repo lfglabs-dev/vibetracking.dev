@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { decodeImportData, type ImportData } from "@/lib/utils";
 import { AuthOptions } from "@/components/import/AuthOptions";
 import { createClient } from "@/lib/supabase/client";
 import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
 import { Logo } from "@/components/shared/Logo";
 
-export default function ImportPage() {
+function ImportPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [data, setData] = useState<ImportData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,10 +77,11 @@ export default function ImportPage() {
 
     initialize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const handleImport = async (importData: ImportData, companyName?: string) => {
     setIsLoading(true);
+
     try {
       const response = await fetch("/api/import", {
         method: "POST",
@@ -271,5 +273,21 @@ export default function ImportPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ImportPageLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-pulse text-xl">Loading...</div>
+    </div>
+  );
+}
+
+export default function ImportPage() {
+  return (
+    <Suspense fallback={<ImportPageLoading />}>
+      <ImportPageContent />
+    </Suspense>
   );
 }
