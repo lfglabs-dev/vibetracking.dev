@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-import { nanoid } from "nanoid";
 
 // Chunk array into smaller batches for bulk operations
 function chunkArray<T>(array: T[], size: number): T[][] {
@@ -351,17 +350,9 @@ export async function POST(request: Request) {
       console.error("Error upserting user stats:", statsError);
     }
 
-    // Generate sync token for CLI
-    const syncToken = nanoid(32);
-    await serviceSupabase.from("sync_tokens").insert({
-      user_id: userId,
-      token: syncToken,
-    });
-
     return NextResponse.json({
       success: true,
       profileUrl,
-      syncToken,
       stats: {
         totalTokens,
         totalCost,

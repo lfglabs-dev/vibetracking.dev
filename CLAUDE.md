@@ -123,17 +123,17 @@ krakow/
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                POST /api/submit                              │
+│       Browser: /import#encoded_data                          │
 ├─────────────────────────────────────────────────────────────┤
-│ Auth: Bearer token from device flow login                    │
-│ Body: TokenContributionData (daily contributions by model)   │
+│ User logs in with GitHub OAuth in browser                    │
+│ Data decoded from URL hash, submitted to /api/import         │
 └───────────────────────────┬─────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                 Supabase (PostgreSQL)                        │
 ├─────────────────────────────────────────────────────────────┤
-│ users, daily_activity, token_usage, user_stats, sync_tokens  │
+│ users, daily_activity, token_usage, user_stats               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -158,9 +158,6 @@ krakow/
 4. **user_stats** - Aggregated statistics
    - `total_tokens`, `total_cost`, `total_sessions`, `favorite_model`, `favorite_tool`
    - `longest_streak_days`, `current_streak_days`, activity dates
-
-5. **sync_tokens** - CLI authentication
-   - Bearer tokens for device flow authentication
 
 ### Security
 
@@ -257,11 +254,8 @@ export function UsageByToolChart({ dailyActivity, unit }) {
 | File | Purpose |
 |------|---------|
 | `cli.ts` | Main CLI entry, Commander setup |
-| `auth.ts` | Device flow login/logout/whoami |
-| `submit.ts` | Submit usage data to API |
 | `native.ts` | Native Rust module bindings |
 | `cursor.ts` | Cursor API sync (fetch usage CSV) |
-| `credentials.ts` | Token storage (~/.vibetracking/credentials.json) |
 | `table.ts` | CLI table formatting |
 | `spinner.ts` | Loading spinner UI |
 
@@ -368,23 +362,13 @@ pnpm test    # Run AVA tests for native module
 ```bash
 cd packages/cli
 
-# Check authentication
-bun run src/cli.ts whoami
+# Run CLI (opens browser with encoded data)
+bun run src/cli.ts
 
-# Login with device flow
-bun run src/cli.ts login
-
-# Show model usage report
-bun run src/cli.ts models
-
-# Show monthly report
-bun run src/cli.ts monthly
-
-# Submit data to server
-bun run src/cli.ts submit
-
-# Dry run (don't actually submit)
-bun run src/cli.ts submit --dry-run
+# Cursor integration
+bun run src/cli.ts cursor login
+bun run src/cli.ts cursor logout
+bun run src/cli.ts cursor status
 ```
 
 ### 3. Browser E2E Tests (Playwright MCP)
@@ -425,41 +409,30 @@ E2E tests use Playwright MCP tools. Credentials from Bitwarden when needed.
 ### Main Commands
 
 ```bash
-vibetracking login             # Authenticate via device flow
-vibetracking logout            # Clear stored credentials
-vibetracking whoami            # Show current user
-
-vibetracking models            # Show model usage report
-vibetracking monthly           # Show monthly usage report
-vibetracking submit            # Submit data to server
-vibetracking submit --dry-run  # Preview without submitting
+vibetracking                   # Scan data and open browser to import
+vibetracking cursor login      # Login to Cursor (paste session token)
+vibetracking cursor logout     # Logout from Cursor
+vibetracking cursor status     # Check Cursor authentication status
 ```
 
-### CLI Options
+### How It Works
 
-```bash
-# Filter by source
-vibetracking models --opencode --claude --cursor
-
-# Filter by date range
-vibetracking models --since 2024-01-01 --until 2024-12-31
-vibetracking models --year 2024
-
-# Include/exclude Cursor
-vibetracking submit --cursor    # Include Cursor data
-vibetracking submit --no-cursor # Exclude Cursor data
-```
+1. Run `vibetracking` in your terminal
+2. CLI scans local AI tool data (Claude Code, Codex, Gemini, Amp, Droid)
+3. If Cursor credentials exist, fetches Cursor usage data
+4. Opens browser to `/import#encoded_data`
+5. User logs in with GitHub (if needed) and confirms import
 
 ### Cursor Integration
 
-Cursor usage data is synced via API (requires Cursor account credentials):
+Cursor usage data is synced via API (requires session token):
 
 ```bash
-# Cursor credentials are stored in ~/.vibetracking/cursor-credentials.json
-# Format: { "email": "...", "accessToken": "..." }
+# Login to Cursor (opens browser, prompts for token)
+vibetracking cursor login
 
-# The CLI automatically syncs Cursor usage when credentials are present
-vibetracking submit  # Syncs Cursor data before submitting
+# Credentials stored in ~/.vibetracking/cursor-credentials.json
+# Format: { "sessionToken": "eyJ...", "createdAt": "..." }
 ```
 
 ---
@@ -468,9 +441,7 @@ vibetracking submit  # Syncs Cursor data before submitting
 
 | Endpoint | Method | Purpose | Auth |
 |----------|--------|---------|------|
-| `/api/submit` | POST | CLI data submission | Bearer token |
 | `/api/import` | POST | Browser-based data import | GitHub OAuth |
-| `/api/sync` | POST | Legacy CLI sync endpoint | Bearer token |
 | `/api/leaderboard` | GET | Get leaderboard data | None |
 | `/og/user/[username]` | GET | Open Graph image | None |
 | `/auth/callback` | GET | GitHub OAuth callback | - |

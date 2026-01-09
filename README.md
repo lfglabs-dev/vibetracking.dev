@@ -184,21 +184,20 @@ bun run dist/cli.js
 │ 3. Compress (gzip+base64url)│
 └───────────────┬─────────────┘
                 │
-    ┌───────────┴───────────┐
-    ▼                       ▼
-┌───────────────┐   ┌───────────────┐
-│ Browser Import│   │ API Auto-sync │
-│ /import#data  │   │ POST /api/sync│
-└───────┬───────┘   └───────┬───────┘
-        │                   │
-        └─────────┬─────────┘
-                  ▼
+                │
+                ▼
+┌─────────────────────────────┐
+│    Browser Import           │
+│    /import#encoded_data     │
+│    (GitHub OAuth login)     │
+└───────────────┬─────────────┘
+                │
+                ▼
 ┌─────────────────────────────┐
 │   Supabase (PostgreSQL)     │
 ├─────────────────────────────┤
 │ users, daily_activity,      │
-│ token_usage, user_stats,    │
-│ sync_tokens                 │
+│ token_usage, user_stats     │
 └─────────────────────────────┘
 ```
 
@@ -211,41 +210,9 @@ bun run dist/cli.js
 ```bash
 # Scan tools and open browser with your data
 bunx vibetracking
-
-# Show usage breakdown by model
-bunx vibetracking models
-
-# Show monthly usage report
-bunx vibetracking monthly
-
-# Export contribution graph as JSON
-bunx vibetracking graph --output graph.json
-
-# Generate a "Wrapped" shareable image
-bunx vibetracking wrapped --year 2025
 ```
 
-### Filtering by Tool
-
-```bash
-bunx vibetracking models --claude      # Only Claude Code
-bunx vibetracking models --cursor      # Only Cursor
-bunx vibetracking models --opencode    # Only OpenCode
-bunx vibetracking models --codex       # Only Codex
-bunx vibetracking models --gemini      # Only Gemini
-bunx vibetracking models --amp         # Only Amp
-bunx vibetracking models --droid       # Only Factory Droid
-```
-
-### Date Filtering
-
-```bash
-bunx vibetracking models --today       # Today only
-bunx vibetracking models --week        # Last 7 days
-bunx vibetracking models --month       # Current month
-bunx vibetracking models --year 2025   # Specific year
-bunx vibetracking models --since 2025-01-01 --until 2025-06-30
-```
+The CLI scans local AI coding tool data and opens your browser to import it via GitHub OAuth.
 
 ### Cursor IDE Integration
 
@@ -291,7 +258,6 @@ bunx vibetracking pricing gpt-4o --json
 | `daily_activity` | Daily stats per tool for heatmap |
 | `token_usage` | Token breakdown by model |
 | `user_stats` | Aggregated statistics |
-| `sync_tokens` | CLI authentication tokens |
 
 ### Security
 
@@ -306,7 +272,6 @@ bunx vibetracking pricing gpt-4o --json
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/import` | POST | Browser-based data import |
-| `/api/sync` | POST | CLI background sync (Bearer auth) |
 | `/api/leaderboard` | GET | Get leaderboard data |
 | `/og/user/[username]` | GET | Open Graph images |
 | `/auth/callback` | GET | GitHub OAuth callback |
@@ -331,9 +296,8 @@ bun run test:all     # Run both
 
 ```bash
 cd packages/cli
-bun run src/cli.ts              # Default command
-bun run src/cli.ts models       # Model report
-bun run src/cli.ts --json       # JSON output
+bun run src/cli.ts              # Default command (opens browser)
+bun run src/cli.ts cursor login # Cursor authentication
 ```
 
 ### Web Application

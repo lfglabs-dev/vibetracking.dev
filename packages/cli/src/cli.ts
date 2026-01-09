@@ -12,8 +12,6 @@ const pkg = require("../package.json") as { version: string };
 import pc from "picocolors";
 import open from "open";
 import pako from "pako";
-import { getApiBaseUrl, loadCredentials } from "./credentials.js";
-import { login, logout, whoami } from "./auth.js";
 
 import {
   loadCursorCredentials,
@@ -44,6 +42,10 @@ function formatNumber(num: number): string {
 
 function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`;
+}
+
+function getApiBaseUrl(): string {
+  return process.env.VIBETRACKING_API_URL || "https://vibetracking.dev";
 }
 
 interface CursorSyncResult {
@@ -77,30 +79,11 @@ async function main() {
     .description("Vibetracking - Track AI coding costs across Claude Code, Codex, Cursor, and more")
     .version(pkg.version);
 
-  // Default command: sync if authenticated, else open browser
+  // Default command: always open browser with data
   program
     .command("default", { isDefault: true, hidden: true })
     .action(async () => {
-      const credentials = loadCredentials();
-      if (credentials) {
-        await syncAndPrintProfile(credentials);
-      } else {
-        await openBrowserWithData();
-      }
-    });
-
-  // Authentication commands
-  program.command("login").description("Login to vibetracking.dev").action(login);
-  program.command("logout").description("Logout from vibetracking.dev").action(logout);
-  program.command("whoami").description("Show current user").action(whoami);
-
-  // Sync command for cron jobs
-  program
-    .command("sync")
-    .description("Sync usage data to vibetracking.dev (for cron jobs)")
-    .option("--quiet", "No output on success")
-    .action(async (options) => {
-      await handleSyncCommand(options);
+      await openBrowserWithData();
     });
 
   // Cursor IDE integration
@@ -130,49 +113,6 @@ async function main() {
     });
 
   await program.parseAsync();
-}
-
-// =============================================================================
-// Default Command: Sync if authenticated, else open browser
-// =============================================================================
-
-async function syncAndPrintProfile(credentials: { token: string; username: string }) {
-  const spinner = createSpinner({ color: "cyan" });
-  spinner.start(pc.gray("Syncing usage data..."));
-
-  const allSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'];
-  const localSources = allSources.filter(s => s !== 'cursor');
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources);
-
-  if (!localMessages) {
-    spinner.error("No data found to sync.");
-    process.exit(1);
-  }
-
-  const graphData = await finalizeGraphAsync({
-    localMessages,
-    includeCursor: cursorSync.synced,
-  });
-
-  const baseUrl = getApiBaseUrl();
-  const response = await fetch(`${baseUrl}/api/sync`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${credentials.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ data: graphData }),
-  });
-
-  if (!response.ok) {
-    spinner.error(`Sync failed: ${response.statusText}`);
-    process.exit(1);
-  }
-
-  spinner.stop();
-  console.log(pc.green("\n  Synced successfully!"));
-  console.log(pc.cyan(`  ${baseUrl}/@${credentials.username}\n`));
 }
 
 /**
@@ -330,61 +270,6 @@ async function openBrowserWithData() {
   console.log(pc.gray(`  ${url.slice(0, 60)}...\n`));
 
   await open(url);
-}
-
-// =============================================================================
-// Sync Command (for cron jobs)
-// =============================================================================
-
-async function handleSyncCommand(options: { quiet?: boolean }) {
-  const credentials = loadCredentials();
-
-  if (!credentials) {
-    if (!options.quiet) {
-      console.log(pc.yellow("\n  Not authenticated."));
-      console.log(pc.gray("  Run 'vibetracking' first to authenticate via browser.\n"));
-    }
-    process.exit(1);
-  }
-
-  const allSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'];
-  const localSources = allSources.filter(s => s !== 'cursor');
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources);
-
-  if (!localMessages) {
-    if (!options.quiet) {
-      console.log(pc.yellow("\n  No data to sync.\n"));
-    }
-    process.exit(1);
-  }
-
-  const graphData = await finalizeGraphAsync({
-    localMessages,
-    includeCursor: cursorSync.synced,
-  });
-
-  const baseUrl = getApiBaseUrl();
-  const response = await fetch(`${baseUrl}/api/sync`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${credentials.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ data: graphData }),
-  });
-
-  if (!response.ok) {
-    if (!options.quiet) {
-      console.log(pc.red(`\n  Sync failed: ${response.statusText}\n`));
-    }
-    process.exit(1);
-  }
-
-  if (!options.quiet) {
-    console.log(pc.green("\n  Synced successfully!"));
-    console.log(pc.cyan(`  ${baseUrl}/@${credentials.username}\n`));
-  }
 }
 
 // =============================================================================
