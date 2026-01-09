@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "env": {}
+    },
+    "vibetracking-supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=qsvmtjcuymxkuuvhkape&read_only=true"
+    }
+  }
+}
