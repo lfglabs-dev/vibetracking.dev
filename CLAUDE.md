@@ -21,11 +21,15 @@ Environment variables are configured in Vercel dashboard for both Production and
 
 ## The Concept
 
-**Vibetracking.dev** is a web application that tracks and visualizes AI coding tool usage statistics. It aggregates usage data from three AI coding assistants:
+**Vibetracking.dev** is a web application that tracks and visualizes AI coding tool usage statistics. It aggregates usage data from multiple AI coding assistants:
 
+- **OpenCode** - Open-source AI coding CLI
 - **Claude Code** - Anthropic's CLI coding assistant
 - **Codex** - OpenAI's coding CLI tool
-- **Cursor** - AI-powered code editor (via CSV export)
+- **Cursor** - AI-powered code editor (via API sync)
+- **Gemini** - Google's AI coding assistant
+- **Amp** - Sourcegraph's AI coding assistant
+- **Droid** - Android Studio AI assistant
 
 The app presents user statistics in an engaging, gamified interface with:
 - Global leaderboards ranked by estimated API spending
@@ -43,17 +47,27 @@ The app presents user statistics in an engaging, gamified interface with:
 ### Monorepo Structure
 
 ```
-riyadh/
+krakow/
 ├── src/                    # Next.js web application
 │   ├── app/               # App Router pages & API routes
 │   ├── components/        # React components
 │   ├── lib/               # Utilities & Supabase client
 │   └── middleware.ts      # URL rewriting (/@user → /user/user)
-├── packages/cli/          # Bun-based CLI tool
-│   └── src/
-│       ├── parsers/       # Tool-specific data parsers
-│       ├── __tests__/     # Unit & integration tests
-│       └── index.ts       # CLI entry point
+├── packages/
+│   ├── cli/               # Bun-based CLI tool (TypeScript)
+│   │   └── src/
+│   │       ├── cli.ts         # Main CLI entry point
+│   │       ├── auth.ts        # Device flow authentication
+│   │       ├── submit.ts      # Data submission to API
+│   │       ├── native.ts      # Native module bindings
+│   │       └── cursor.ts      # Cursor API sync
+│   └── core/              # Native Rust module (NAPI-RS)
+│       └── src/
+│           ├── lib.rs         # Main exports & NAPI bindings
+│           ├── sessions/      # Tool-specific parsers
+│           ├── pricing/       # LiteLLM & OpenRouter pricing
+│           ├── scanner.rs     # File system scanner
+│           └── aggregator.rs  # Data aggregation
 ├── supabase/migrations/   # Database schema
 ├── public/                # Static assets
 └── scripts/               # Manual test scripts
@@ -70,7 +84,9 @@ riyadh/
 | **Charts** | Recharts v3 |
 | **CLI Runtime** | Bun |
 | **CLI Framework** | Commander.js |
-| **Compression** | Pako (gzip) |
+| **Native Core** | Rust + NAPI-RS v3 |
+| **JSON Parsing** | simd-json (SIMD-accelerated) |
+| **Parallelism** | Rayon (Rust) |
 | **Deployment** | Vercel |
 
 ---
@@ -78,39 +94,47 @@ riyadh/
 ## Data Flow
 
 ```
-┌─────────────────────────────┐
-│      Local Machine          │
-├─────────────────────────────┤
-│ Claude: ~/.claude/stats-cache.json
-│ Codex:  ~/.codex/cache.toml
-│ Cursor: ~/Downloads/*.csv (manual)
-└───────────────┬─────────────┘
-                │
-                ▼
-┌─────────────────────────────┐
-│   CLI (bunx vibetracking)   │
-├─────────────────────────────┤
-│ 1. Parse tool data files    │
-│ 2. Aggregate statistics     │
-│ 3. Compress (gzip+base64url)│
-└───────────────┬─────────────┘
-                │
-    ┌───────────┴───────────┐
-    ▼                       ▼
-┌───────────────┐   ┌───────────────┐
-│ Browser Import│   │ API Auto-sync │
-│ /import#data  │   │ POST /api/sync│
-└───────┬───────┘   └───────┬───────┘
-        │                   │
-        └─────────┬─────────┘
-                  ▼
-┌─────────────────────────────┐
-│   Supabase (PostgreSQL)     │
-├─────────────────────────────┤
-│ users, daily_activity,      │
-│ token_usage, user_stats,    │
-│ sync_tokens                 │
-└─────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     Local Machine                            │
+├─────────────────────────────────────────────────────────────┤
+│ OpenCode:  ~/.local/share/opencode/storage/message/**/*.json │
+│ Claude:    ~/.claude/projects/**/conversation.jsonl          │
+│ Codex:     ~/.codex/tasks/**/*.json                          │
+│ Gemini:    ~/.gemini/gemini-cli/conversations/**/*.json      │
+│ Amp:       ~/.ampcode/sessions/**/*.json                     │
+│ Droid:     ~/Library/.../googleAiStudio/history/*.json       │
+│ Cursor:    ~/.vibetracking/cursor-cache/usage.csv (synced)   │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│              CLI (vibetracking submit)                       │
+├─────────────────────────────────────────────────────────────┤
+│ Phase 1 (Parallel):                                          │
+│   - Parse local sources (Rust native, parallel)              │
+│   - Sync Cursor usage via API                                │
+│   - Fetch model pricing (LiteLLM + OpenRouter)               │
+│                                                              │
+│ Phase 2 (Finalize):                                          │
+│   - Apply pricing to all messages                            │
+│   - Combine local + Cursor data                              │
+│   - Generate TokenContributionData graph                     │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                POST /api/submit                              │
+├─────────────────────────────────────────────────────────────┤
+│ Auth: Bearer token from device flow login                    │
+│ Body: TokenContributionData (daily contributions by model)   │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 Supabase (PostgreSQL)                        │
+├─────────────────────────────────────────────────────────────┤
+│ users, daily_activity, token_usage, user_stats, sync_tokens  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -124,17 +148,19 @@ riyadh/
    - `is_anonymous`, `anonymous_id` (for non-GitHub users)
 
 2. **daily_activity** - Heatmap data
-   - `user_id`, `date`, `tool`, `message_count`, `session_count`, `total_tokens`
+   - `user_id`, `date`, `tool`, `message_count`, `session_count`, `total_tokens`, `cost`
+   - Tools: `claude_code`, `codex`, `cursor`, `opencode`, `claude`, `gemini`, `amp`, `droid`
 
 3. **token_usage** - Model breakdown
-   - `user_id`, `date`, `tool`, `model`, `input_tokens`, `output_tokens`
+   - `user_id`, `date`, `tool`, `model`
+   - `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `cost`
 
 4. **user_stats** - Aggregated statistics
-   - `total_tokens`, `total_sessions`, `favorite_model`, `favorite_tool`
-   - `longest_session_ms`, streaks, activity dates
+   - `total_tokens`, `total_cost`, `total_sessions`, `favorite_model`, `favorite_tool`
+   - `longest_streak_days`, `current_streak_days`, activity dates
 
 5. **sync_tokens** - CLI authentication
-   - Bearer tokens for background/headless syncing
+   - Bearer tokens for device flow authentication
 
 ### Security
 
@@ -153,8 +179,8 @@ riyadh/
 | `app/page.tsx` | Homepage with leaderboard |
 | `app/user/[username]/page.tsx` | User profile page |
 | `app/import/page.tsx` | Data import flow |
-| `app/api/import/route.ts` | Browser import endpoint |
-| `app/api/sync/route.ts` | CLI sync endpoint |
+| `app/api/submit/route.ts` | CLI data submission endpoint |
+| `app/api/sync/route.ts` | Legacy CLI sync endpoint |
 | `app/api/leaderboard/route.ts` | Leaderboard data |
 | `components/dashboard/` | Charts (heatmap, model usage, etc.) |
 | `lib/pricing.ts` | Model pricing calculations |
@@ -164,14 +190,33 @@ riyadh/
 
 | File | Purpose |
 |------|---------|
-| `index.ts` | Main CLI entry, Commander setup |
-| `parsers/claude.ts` | Parse Claude Code stats-cache.json |
-| `parsers/codex.ts` | Parse Codex cache.toml |
-| `parsers/cursor.ts` | Parse Cursor CSV export |
-| `aggregator.ts` | Combine data from all tools |
-| `encoder.ts` | Gzip + base64url encoding |
-| `hooks.ts` | Install auto-sync hooks |
-| `config.ts` | Local config storage |
+| `cli.ts` | Main CLI entry, Commander setup |
+| `auth.ts` | Device flow login/logout/whoami |
+| `submit.ts` | Submit usage data to API |
+| `native.ts` | Native Rust module bindings |
+| `cursor.ts` | Cursor API sync (fetch usage CSV) |
+| `credentials.ts` | Token storage (~/.vibetracking/credentials.json) |
+| `table.ts` | CLI table formatting |
+| `spinner.ts` | Loading spinner UI |
+
+### Native Core (`packages/core/`)
+
+| File | Purpose |
+|------|---------|
+| `lib.rs` | NAPI exports, main entry point |
+| `scanner.rs` | Parallel file system scanning |
+| `aggregator.rs` | Aggregate messages by date |
+| `sessions/opencode.rs` | OpenCode JSON parser |
+| `sessions/claudecode.rs` | Claude Code JSONL parser |
+| `sessions/codex.rs` | Codex JSON parser |
+| `sessions/cursor.rs` | Cursor CSV parser |
+| `sessions/gemini.rs` | Gemini JSON parser |
+| `sessions/amp.rs` | Amp JSON parser |
+| `sessions/droid.rs` | Droid JSON parser |
+| `pricing/litellm.rs` | LiteLLM pricing API |
+| `pricing/openrouter.rs` | OpenRouter pricing API |
+| `pricing/lookup.rs` | Model pricing lookup with aliases |
+| `pricing/cache.rs` | Disk cache for pricing data |
 
 ---
 
@@ -179,7 +224,9 @@ riyadh/
 
 ### Prerequisites
 
-- Node.js 18+ or Bun
+- Node.js 22+ (for native module compatibility)
+- Bun (CLI runtime)
+- Rust 1.88+ (for native core compilation)
 - pnpm (workspace manager)
 - Supabase project (for database)
 - GitHub OAuth app (for authentication)
@@ -191,7 +238,7 @@ Create `.env.vibetracking` with:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
-SUPABASE_SERVICE_KEY=xxx  # For server-side operations
+SUPABASE_SERVICE_ROLE_KEY=xxx  # For server-side operations
 ```
 
 ### Development
@@ -200,13 +247,28 @@ SUPABASE_SERVICE_KEY=xxx  # For server-side operations
 # Install dependencies
 pnpm install
 
+# Build native core (required first time)
+cd packages/core && pnpm build
+
 # Run the web app
 pnpm dev              # Uses dotenvx to load .env.vibetracking
 
 # CLI development (in packages/cli/)
 cd packages/cli
-bun run src/index.ts  # Run CLI directly
-bun test              # Run tests
+bun run src/cli.ts models     # Show model usage report
+bun run src/cli.ts submit     # Submit data to API
+```
+
+### Building the Native Core
+
+```bash
+cd packages/core
+
+# Build for current platform
+pnpm build
+
+# Run tests
+pnpm test
 ```
 
 ---
@@ -225,40 +287,35 @@ bun test              # Run tests
 | `/test-cli` | CLI manual testing | Manual |
 | `/test-onboarding` | Quick onboarding flow | ~3 min |
 
-### 1. CLI Unit Tests (packages/cli/)
-
-The CLI has comprehensive tests using Bun's built-in test framework:
+### 1. Native Core Tests (packages/core/)
 
 ```bash
-cd packages/cli
-bun test                    # Run all tests
-bun test src/__tests__/claude.test.ts  # Run specific test
+cd packages/core
+pnpm test    # Run AVA tests for native module
 ```
-
-**Test files:**
-- `aggregator.test.ts` - Data aggregation logic
-- `claude.test.ts` - Claude Code parser
-- `codex.test.ts` - Codex parser
-- `cursor.test.ts` - Cursor CSV parser
-- `encoder.test.ts` - Compression/encoding round-trip
-- `integration.test.ts` - Full CLI flow
 
 ### 2. CLI Manual Testing
 
-Use `/test-cli` for manual CLI testing. It prepares the package and provides exact commands:
-
 ```bash
-# Run unit tests first
-cd packages/cli && bun test
+cd packages/cli
 
-# Test default command (scans local tools, opens browser)
-cd packages/cli && bun run src/index.ts
+# Check authentication
+bun run src/cli.ts whoami
 
-# Test sync command
-cd packages/cli && bun run src/index.ts sync --quiet
+# Login with device flow
+bun run src/cli.ts login
 
-# Test autosync
-cd packages/cli && bun run src/index.ts autosync status
+# Show model usage report
+bun run src/cli.ts models
+
+# Show monthly report
+bun run src/cli.ts monthly
+
+# Submit data to server
+bun run src/cli.ts submit
+
+# Dry run (don't actually submit)
+bun run src/cli.ts submit --dry-run
 ```
 
 ### 3. Browser E2E Tests (Playwright MCP)
@@ -292,64 +349,6 @@ E2E tests use Playwright MCP tools. Credentials from Bitwarden when needed.
 | `/e2e/test-profile` | Profile sections, responsive design, share button |
 | `/e2e/test-full-suite` | All of the above in dependency order (creates 2 test users) |
 
-#### Test Flow with Playwright MCP
-
-1. **Navigate to page:**
-   ```
-   mcp__playwright__browser_navigate: http://localhost:3000
-   ```
-
-2. **Get page structure:**
-   ```
-   mcp__playwright__browser_snapshot
-   ```
-
-3. **Interact with elements:**
-   ```
-   mcp__playwright__browser_click: ref="element-ref", element="description"
-   mcp__playwright__browser_type: ref="input-ref", text="value"
-   ```
-
-4. **Check for errors:**
-   ```
-   mcp__playwright__browser_console_messages: level="error"
-   ```
-
-5. **Take screenshots:**
-   ```
-   mcp__playwright__browser_take_screenshot: filename="test-result.png"
-   ```
-
-#### Authenticated Testing with Bitwarden
-
-For tests requiring GitHub login or other authenticated flows:
-
-```bash
-# 1. Get credentials from Bitwarden
-EMAIL=$(dotenvx run -f .env.local -- ~/bin/bws secret get <EMAIL_SECRET_ID> -o json | jq -r '.value')
-PASSWORD=$(dotenvx run -f .env.local -- ~/bin/bws secret get <PASSWORD_SECRET_ID> -o json | jq -r '.value')
-
-# 2. Use with Playwright MCP:
-#    - browser_navigate to login page
-#    - browser_type to fill email field
-#    - browser_type to fill password field
-#    - browser_click on submit
-#    - browser_snapshot to verify authenticated state
-```
-
-### 4. Quick Onboarding Test
-
-For a fast end-to-end check:
-
-```bash
-pnpm test:onboarding    # Runs scripts/test-onboarding.ts
-```
-
-Or use the slash command:
-```
-/test-onboarding
-```
-
 ---
 
 ## CLI Commands
@@ -357,19 +356,42 @@ Or use the slash command:
 ### Main Commands
 
 ```bash
-bunx vibetracking              # Scan tools, show stats, open browser
-bunx vibetracking sync         # Sync data to server (background)
-bunx vibetracking autosync on  # Enable automatic syncing
-bunx vibetracking autosync off # Disable automatic syncing
-bunx vibetracking autosync status
+vibetracking login             # Authenticate via device flow
+vibetracking logout            # Clear stored credentials
+vibetracking whoami            # Show current user
+
+vibetracking models            # Show model usage report
+vibetracking monthly           # Show monthly usage report
+vibetracking submit            # Submit data to server
+vibetracking submit --dry-run  # Preview without submitting
 ```
 
-### Hook Integration
+### CLI Options
 
-The CLI installs hooks for automatic syncing:
+```bash
+# Filter by source
+vibetracking models --opencode --claude --cursor
 
-- **Claude Code**: `~/.claude/settings.json` - runs `vibetracking sync --quiet` on exit
-- **Codex**: `~/.codex/config.toml` - runs on session end
+# Filter by date range
+vibetracking models --since 2024-01-01 --until 2024-12-31
+vibetracking models --year 2024
+
+# Include/exclude Cursor
+vibetracking submit --cursor    # Include Cursor data
+vibetracking submit --no-cursor # Exclude Cursor data
+```
+
+### Cursor Integration
+
+Cursor usage data is synced via API (requires Cursor account credentials):
+
+```bash
+# Cursor credentials are stored in ~/.vibetracking/cursor-credentials.json
+# Format: { "email": "...", "accessToken": "..." }
+
+# The CLI automatically syncs Cursor usage when credentials are present
+vibetracking submit  # Syncs Cursor data before submitting
+```
 
 ---
 
@@ -377,8 +399,9 @@ The CLI installs hooks for automatic syncing:
 
 | Endpoint | Method | Purpose | Auth |
 |----------|--------|---------|------|
+| `/api/submit` | POST | CLI data submission | Bearer token |
 | `/api/import` | POST | Browser-based data import | GitHub OAuth |
-| `/api/sync` | POST | CLI background sync | Bearer token |
+| `/api/sync` | POST | Legacy CLI sync endpoint | Bearer token |
 | `/api/leaderboard` | GET | Get leaderboard data | None |
 | `/og/user/[username]` | GET | Open Graph image | None |
 | `/auth/callback` | GET | GitHub OAuth callback | - |
@@ -410,9 +433,22 @@ Reserved paths that are NOT rewritten:
 ### CLI Changes
 
 1. Modify code in `packages/cli/src/`
-2. Add/update tests in `packages/cli/src/__tests__/`
-3. Run tests: `cd packages/cli && bun test`
-4. Test manually: `bun run src/index.ts`
+2. Test manually: `bun run src/cli.ts <command>`
+
+### Native Core Changes
+
+1. Modify Rust code in `packages/core/src/`
+2. Rebuild: `cd packages/core && pnpm build`
+3. Run tests: `pnpm test`
+4. Test via CLI: `cd packages/cli && bun run src/cli.ts models`
+
+### Adding a New AI Tool Parser
+
+1. Create new parser in `packages/core/src/sessions/<tool>.rs`
+2. Add to `sessions/mod.rs` exports
+3. Update `scanner.rs` to scan new tool's file locations
+4. Update `lib.rs` to include in parsing functions
+5. Add tool to database constraints (migration)
 
 ---
 
@@ -420,11 +456,12 @@ Reserved paths that are NOT rewritten:
 
 | File | What it does |
 |------|--------------|
-| `src/lib/pricing.ts` | Model pricing data & USD calculations |
+| `src/lib/pricing.ts` | Web app model pricing |
 | `src/lib/utils.ts` | Number formatting, date utilities |
-| `src/lib/mockData.ts` | Demo users for testing |
-| `packages/cli/src/encoder.ts` | Data compression for URL-safe transfer |
-| `packages/cli/src/hooks.ts` | Auto-sync hook installation |
+| `packages/core/src/pricing/lookup.rs` | Native pricing lookup with aliases |
+| `packages/core/src/pricing/litellm.rs` | LiteLLM API pricing fetch |
+| `packages/cli/src/native.ts` | Native module bindings |
+| `packages/cli/src/credentials.ts` | Token storage |
 
 ---
 
@@ -432,20 +469,40 @@ Reserved paths that are NOT rewritten:
 
 ### Common Issues
 
-1. **"No data found" on import page**
-   - Ensure the URL has `#encoded-data` hash
-   - Run `bunx vibetracking` to generate fresh data
+1. **"Native module required" error**
+   - Build the native core: `cd packages/core && pnpm build`
+   - Ensure Rust 1.88+ is installed: `rustup update stable`
 
-2. **CLI can't find tool data**
-   - Claude Code: Check `~/.claude/stats-cache.json` exists
-   - Codex: Check `~/.codex/cache.toml` exists
-   - Cursor: Export CSV from app to ~/Downloads/
+2. **"No data found" on submit**
+   - Check if AI tools have created session files
+   - Verify file paths in scanner.rs match your system
 
-3. **Database connection issues**
+3. **Cursor sync failing**
+   - Check ~/.vibetracking/cursor-credentials.json exists
+   - Verify access token is still valid
+
+4. **Database connection issues**
    - Verify `.env.vibetracking` has correct Supabase credentials
    - Check Supabase project is active
 
-4. **E2E tests failing**
+5. **E2E tests failing**
    - Ensure dev server is running on port 3000
    - Check Playwright MCP is available
    - Verify Bitwarden access token is configured
+
+---
+
+## Pricing Data Sources
+
+The native core fetches pricing from two sources:
+
+1. **LiteLLM** (`/model_prices/current_prices`)
+   - Primary source for most models
+   - Cached to `~/.cache/vibetracking/pricing-litellm.json`
+
+2. **OpenRouter** (`/api/v1/models/{id}/endpoints`)
+   - Fallback for OpenRouter-specific models
+   - Fetches author pricing (direct from model provider)
+   - Cached to `~/.cache/vibetracking/pricing-openrouter.json`
+
+Cache TTL: 24 hours
