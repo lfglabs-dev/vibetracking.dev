@@ -22,7 +22,7 @@ const positionToTail: Record<StickerPosition, TailDirection> = {
   "top-right": "bottom-right",
   "bottom-right": "bottom-right",
   "bottom-left": "bottom-left",
-  "inline": "bottom-center",
+  "inline": "bottom-right",
 };
 
 // Position styles for absolute positioning

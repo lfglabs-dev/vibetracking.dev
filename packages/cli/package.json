@@ -1,51 +1,61 @@
 {
   "name": "vibetracking",
   "version": "0.1.0",
-  "description": "Track your AI coding tool usage across Claude Code, Codex, and Cursor",
-  "type": "module",
-  "bin": {
-    "vibetracking": "./dist/index.js"
-  },
-  "main": "./dist/index.js",
-  "files": [
-    "dist",
-    "README.md"
-  ],
-  "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist --target node",
-    "dev": "bun run ./src/index.ts",
-    "test": "bun test",
-    "prepublishOnly": "bun test && bun run build"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "keywords": [
-    "cli",
-    "ai",
-    "coding",
-    "claude",
-    "codex",
-    "cursor",
-    "developer-tools",
-    "usage-tracking",
-    "vibetracking"
-  ],
-  "author": "vibetracking",
+  "description": "Track AI coding assistant token usage and costs across Claude Code, Codex, Cursor, and more.",
   "license": "MIT",
-  "homepage": "https://vibetracking.dev",
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/pako": "^2.0.4",
-    "typescript": "^5"
+  "type": "module",
+  "main": "./dist/cli.js",
+  "bin": {
+    "vibetracking": "./dist/cli.js"
+  },
+  "files": [
+    "dist/**/*",
+    "src/**/*"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lfglabs/vibetracking.git",
+    "directory": "packages/cli"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "bun run --conditions=browser src/cli.ts",
+    "start": "bun run --conditions=browser dist/cli.js",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@iarna/toml": "^3.0.0",
-    "chalk": "^5.6.2",
+    "@napi-rs/canvas": "^0.1.68",
+    "@resvg/resvg-js": "^2.6.2",
+    "@vibetracking/core": "workspace:*",
+    "cli-table3": "^0.6.5",
+    "clipboardy": "^5.0.2",
     "commander": "^14.0.2",
     "csv-parse": "^5.6.0",
-    "open": "^11.0.0",
-    "ora": "^9.0.0",
-    "pako": "^2.1.0"
-  }
+    "date-fns": "^4.1.0",
+    "open": "^10.1.0",
+    "pako": "^2.1.0",
+    "picocolors": "^1.1.1",
+    "string-width": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pako": "^2.0.4",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "bun": ">= 1.0"
+  },
+  "keywords": [
+    "vibetracking",
+    "claude-code",
+    "cursor",
+    "codex",
+    "ai-usage",
+    "token-tracker",
+    "cli"
+  ]
 }
