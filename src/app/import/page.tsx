@@ -3,7 +3,12 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { decodeImportData, type ImportData } from "@/lib/utils";
-import { AuthOptions } from "@/components/import/AuthOptions";
+import {
+  AuthOptions,
+  IMPORT_DATA_KEY,
+  IMPORT_DATA_EXPIRY_MS,
+  type StoredImportData,
+} from "@/components/import/AuthOptions";
 import { createClient } from "@/lib/supabase/client";
 import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
 import { Logo } from "@/components/shared/Logo";
@@ -40,19 +45,37 @@ function ImportPageContent() {
 
   useEffect(() => {
     const initialize = async () => {
-      // Get data from hash or sessionStorage first
+      // Get data from hash or localStorage first
       let encodedData: string | null = null;
 
       if (typeof window !== "undefined") {
-        // First try hash
+        // First try hash (fresh from CLI)
         if (window.location.hash && window.location.hash.length > 1) {
           encodedData = window.location.hash.slice(1);
+          // Also store in localStorage in case user refreshes or OAuth redirects
+          const storedData: StoredImportData = {
+            data: encodedData,
+            timestamp: Date.now(),
+          };
+          localStorage.setItem(IMPORT_DATA_KEY, JSON.stringify(storedData));
         }
-        // Then try sessionStorage (after OAuth redirect)
+        // Then try localStorage (after OAuth redirect or page refresh)
         else {
-          encodedData = sessionStorage.getItem("importData");
-          if (encodedData) {
-            sessionStorage.removeItem("importData");
+          const stored = localStorage.getItem(IMPORT_DATA_KEY);
+          if (stored) {
+            try {
+              const parsed: StoredImportData = JSON.parse(stored);
+              // Check if data is not expired (1 hour)
+              if (Date.now() - parsed.timestamp < IMPORT_DATA_EXPIRY_MS) {
+                encodedData = parsed.data;
+              } else {
+                // Data expired, clean up
+                localStorage.removeItem(IMPORT_DATA_KEY);
+              }
+            } catch {
+              // Invalid JSON, clean up
+              localStorage.removeItem(IMPORT_DATA_KEY);
+            }
           }
         }
       }
@@ -116,6 +139,9 @@ function ImportPageContent() {
         const error = await response.json();
         throw new Error(error.message || "Import failed");
       }
+
+      // Clean up localStorage after successful import
+      localStorage.removeItem(IMPORT_DATA_KEY);
 
       const result = await response.json();
       router.push(result.profileUrl);
