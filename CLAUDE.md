@@ -170,6 +170,72 @@ krakow/
 
 ---
 
+## Atomic UI Architecture
+
+### Component Organization
+
+The project follows an atomic design pattern for chart components:
+
+- **`components/ui/`** - Pure UI primitives (no data fetching, receive data via props)
+- **`components/[domain]/`** - Data-connected components that use UI primitives
+
+### Chart UI Primitives
+
+Reusable chart primitives are located in `src/components/ui/charts/`:
+
+| Component | Description | Wraps |
+|-----------|-------------|-------|
+| `LineChart` | Multi-line time series charts | Recharts LineChart |
+| `BarChart` | Horizontal/vertical bar charts | Recharts BarChart |
+| `AreaChart` | Single area chart with gradient | Recharts AreaChart |
+| `PieChart` | Donut/pie charts | Recharts PieChart |
+| `StackedAreaChart` | Stacked percentage area charts | Recharts AreaChart |
+| `ChartTooltip` | Consistent tooltip styling | - |
+| `ChartCard` | Card wrapper with title slot | - |
+
+### Shared Constants
+
+`src/components/ui/charts/constants.ts` exports:
+- `MODEL_COLORS` - Color palette for model charts
+- `TOOL_COLORS` - Colors for each AI tool
+- `TOOL_LABELS` - Display names for tools
+- `AXIS_STYLE` - Consistent axis styling
+- `GRID_STYLE` - Grid line styling
+- `TOOLTIP_STYLE` - Tooltip container styling
+- `getColorFromString()` - Generate consistent color from string
+
+### Usage Pattern
+
+```tsx
+// Import from UI primitives
+import { LineChart, ChartCard, TOOL_COLORS } from "@/components/ui/charts";
+
+// Data component handles fetching/transformation
+export function UsageByToolChart({ dailyActivity, unit }) {
+  // Transform data...
+  const lines = tools.map(tool => ({
+    dataKey: tool,
+    color: TOOL_COLORS[tool],
+    label: TOOL_LABELS[tool],
+  }));
+
+  return (
+    <ChartCard title="Usage by IDE" rightSlot={<TimeframeSelector />}>
+      <LineChart data={chartData} lines={lines} xAxisKey="date" />
+    </ChartCard>
+  );
+}
+```
+
+### Adding New Charts
+
+**DO NOT** create new chart components directly in `dashboard/`. Instead:
+1. Check if an existing UI primitive fits your need
+2. If not, create a new primitive in `components/ui/charts/`
+3. Then create the data-connected component in `components/dashboard/`
+
+---
+
 ## Key Components
 
 ### Web Application (`src/`)

@@ -1,16 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
+import { LineChart, ChartCard, TOOL_COLORS, TOOL_LABELS } from "@/components/ui/charts";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { estimateApiSpendUsd } from "@/lib/pricing";
 import type { DisplayUnit } from "./UnitToggle";
@@ -33,29 +24,6 @@ const TIMEFRAME_TO_DAYS: Record<Timeframe, number> = {
   "30d": 30,
   "1y": 365,
   all: Infinity,
-};
-
-// Tool colors matching the KPI cards design system - all 7 tools
-const TOOL_COLORS: Record<string, string> = {
-  claude_code: "#D63384", // Pink
-  cursor: "#0D6EFD", // Blue
-  codex: "#198754", // Green
-  opencode: "#6F42C1", // Purple
-  claude: "#FD7E14", // Orange
-  gemini: "#20C997", // Teal
-  amp: "#CC9A06", // Yellow
-  droid: "#DC3545", // Red
-};
-
-const TOOL_LABELS: Record<string, string> = {
-  claude_code: "Claude Code",
-  cursor: "Cursor",
-  codex: "Codex",
-  opencode: "OpenCode",
-  claude: "Claude",
-  gemini: "Gemini",
-  amp: "Amp",
-  droid: "Droid",
 };
 
 // Determine granularity based on date range
@@ -147,7 +115,6 @@ export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps)
     const entry = dateMap.get(item.date)!;
 
     if (unit === "usd") {
-      // Convert tokens to USD
       entry[item.tool] = estimateApiSpendUsd({ totalTokens: item.totalTokens });
     } else {
       entry[item.tool] = item.totalTokens;
@@ -164,14 +131,11 @@ export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps)
     if (granularity === "monthly") {
       return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
     }
-    if (granularity === "weekly") {
-      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   // Custom tooltip formatter
-  const tooltipFormatter = (value: number | undefined, name: string | undefined) => {
+  const tooltipFormatter = (value: number | undefined, name: string | undefined): [string, string] => {
     if (value === undefined || name === undefined) return ["", ""];
     const label = TOOL_LABELS[name] || name;
     if (unit === "usd") {
@@ -187,58 +151,28 @@ export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps)
     return formatNumber(value);
   };
 
+  // Build line configs for the chart
+  const lines = tools.map((tool) => ({
+    dataKey: tool,
+    color: TOOL_COLORS[tool] || "#232323",
+    label: TOOL_LABELS[tool] || tool,
+  }));
+
   return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold">Usage by IDE</h3>
-        <TimeframeSelector value={timeframe} onChange={setTimeframe} />
-      </div>
-      <div className="h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#232323" strokeOpacity={0.1} />
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              tick={{ fontSize: 11, fill: "#232323", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={{ stroke: "#232323", strokeOpacity: 0.1 }}
-            />
-            <YAxis
-              tickFormatter={yAxisFormatter}
-              tick={{ fontSize: 11, fill: "#232323", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={{ stroke: "#232323", strokeOpacity: 0.1 }}
-              width={60}
-            />
-            <Tooltip
-              formatter={tooltipFormatter}
-              labelFormatter={(label) => formatDate(label as string)}
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #232323",
-                borderRadius: "8px",
-                boxShadow: "2px 2px 0 #232323",
-              }}
-            />
-            <Legend
-              formatter={(value) => TOOL_LABELS[value] || value}
-              wrapperStyle={{ fontSize: 12 }}
-            />
-            {tools.map((tool) => (
-              <Line
-                key={tool}
-                type="monotone"
-                dataKey={tool}
-                stroke={TOOL_COLORS[tool] || "#232323"}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, strokeWidth: 2 }}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartCard
+      title="Usage by IDE"
+      rightSlot={<TimeframeSelector value={timeframe} onChange={setTimeframe} />}
+    >
+      <LineChart
+        data={chartData}
+        lines={lines}
+        xAxisKey="date"
+        xAxisFormatter={formatDate}
+        yAxisFormatter={yAxisFormatter}
+        tooltipFormatter={tooltipFormatter}
+        tooltipLabelFormatter={formatDate}
+        legendFormatter={(value) => TOOL_LABELS[value] || value}
+      />
+    </ChartCard>
   );
 }
