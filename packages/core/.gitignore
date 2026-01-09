@@ -2,11 +2,11 @@
 node_modules/
 
 # Build output
-dist/
+target/
+*.node
 
-# Bun
-bun.lock
-*.lockb
+# Cargo
+Cargo.lock
 
 # OS files
 .DS_Store
