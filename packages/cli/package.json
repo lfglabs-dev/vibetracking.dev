@@ -12,9 +12,10 @@
     "dist/**/*"
   ],
   "os": [
-    "darwin",
-    "linux",
-    "win32"
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
   ],
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
