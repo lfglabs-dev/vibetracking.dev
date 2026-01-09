@@ -229,7 +229,7 @@ async function handleTokenContributionData(
       for (const chunk of tokenChunks) {
         const { error } = await supabase
           .from("token_usage")
-          .insert(chunk);
+          .upsert(chunk, { onConflict: "user_id,date,tool,model" });
         if (error) console.error("token_usage error:", error);
       }
     })(),

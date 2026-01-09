@@ -14,6 +14,7 @@ import {
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { estimateApiSpendUsd } from "@/lib/pricing";
 import type { DisplayUnit } from "./UnitToggle";
+import { TimeframeSelector, type Timeframe } from "./TimeframeSelector";
 
 interface DailyActivity {
   date: string;
@@ -26,7 +27,13 @@ interface UsageByToolChartProps {
   unit: DisplayUnit;
 }
 
-type TimeRange = "7D" | "30D" | "1Y";
+// Map from shared Timeframe to local TimeRange for filtering
+const TIMEFRAME_TO_DAYS: Record<Timeframe, number> = {
+  "7d": 7,
+  "30d": 30,
+  "1y": 365,
+  all: Infinity,
+};
 
 // Tool colors matching the KPI cards design system - all 7 tools
 const TOOL_COLORS: Record<string, string> = {
@@ -100,35 +107,25 @@ function aggregateData(
 }
 
 // Filter data by time range
-function filterByTimeRange(data: DailyActivity[], range: TimeRange): DailyActivity[] {
+function filterByTimeRange(data: DailyActivity[], timeframe: Timeframe): DailyActivity[] {
+  if (timeframe === "all") return data;
+
   const now = new Date();
-  let cutoffDate: Date;
-
-  switch (range) {
-    case "7D":
-      cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case "30D":
-      cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      break;
-    case "1Y":
-      cutoffDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      break;
-  }
-
+  const days = TIMEFRAME_TO_DAYS[timeframe];
+  const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
   const cutoffStr = cutoffDate.toISOString().split("T")[0];
   return data.filter((d) => d.date >= cutoffStr);
 }
 
 export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>("30D");
+  const [timeframe, setTimeframe] = useState<Timeframe>("30d");
 
   if (!dailyActivity || dailyActivity.length === 0) {
     return null;
   }
 
   // Filter data by selected time range
-  const filteredData = filterByTimeRange(dailyActivity, timeRange);
+  const filteredData = filterByTimeRange(dailyActivity, timeframe);
 
   // Get unique dates to determine granularity
   const uniqueDates = new Set(filteredData.map((d) => d.date));
@@ -190,29 +187,11 @@ export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps)
     return formatNumber(value);
   };
 
-  const timeRangeOptions: TimeRange[] = ["7D", "30D", "1Y"];
-
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold">Usage by IDE</h3>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-[#232323]/20 overflow-hidden">
-            {timeRangeOptions.map((range) => (
-              <button
-                key={range}
-                onClick={() => setTimeRange(range)}
-                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                  timeRange === range
-                    ? "bg-[#232323] text-white"
-                    : "bg-white text-[#232323]/70 hover:bg-[#232323]/5"
-                }`}
-              >
-                {range}
-              </button>
-            ))}
-          </div>
-        </div>
+        <TimeframeSelector value={timeframe} onChange={setTimeframe} />
       </div>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">

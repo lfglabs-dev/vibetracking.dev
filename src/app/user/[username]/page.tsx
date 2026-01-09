@@ -97,6 +97,7 @@ export default async function UserProfilePage({ params }: PageParams) {
               ? {
                   totalTokens: mockStats.total_tokens,
                   totalSessions: mockStats.total_sessions,
+                  totalCost: mockStats.total_cost || 0,
                   favoriteModel: mockStats.favorite_model,
                   favoriteTool: mockStats.favorite_tool,
                   longestSessionMs: mockStats.longest_session_ms,
@@ -159,14 +160,15 @@ export default async function UserProfilePage({ params }: PageParams) {
 
   // Calculate user percentile based on estimated spend
   // "Top X%" means you're in the top X% of users by API spend
-  // E.g., "Top 5%" means you're better than 95% of users
+  // E.g., "Top 5%" means you're rank 5 out of 100 (better than 95%)
+  // Formula: percentile = (rank / totalUsers) * 100
   let userPercentile = 50; // Default
   if (stats) {
     const { data: allUserStats } = await supabase
       .from("user_stats")
       .select("user_id, total_tokens, favorite_model");
 
-    if (allUserStats && allUserStats.length > 1) {
+    if (allUserStats && allUserStats.length > 0) {
       const userSpend = estimateApiSpendUsd({
         model: stats.favorite_model,
         totalTokens: stats.total_tokens,
@@ -177,15 +179,14 @@ export default async function UserProfilePage({ params }: PageParams) {
           totalTokens: u.total_tokens,
         })
       );
-      // Count users with higher spend (higher rank)
+      // Count users with higher spend (better rank)
       const usersAbove = allSpends.filter((spend) => spend > userSpend).length;
       // Your rank = usersAbove + 1 (1-indexed)
       // Percentile = (rank / total) * 100
-      // If 0 users above, you're rank 1 = top (1/N * 100)%
+      // With 1 user: rank 1 / 1 = 100% (you ARE the top 100%)
+      // With 2 users: if #1, rank 1 / 2 = 50% (top half)
+      // With 100 users: if #1, rank 1 / 100 = 1% (top 1%)
       userPercentile = Math.max(1, Math.ceil(((usersAbove + 1) / allUserStats.length) * 100));
-    } else {
-      // Only 1 user in the system = you're #1
-      userPercentile = 1;
     }
   }
 
@@ -205,6 +206,7 @@ export default async function UserProfilePage({ params }: PageParams) {
           ? {
               totalTokens: stats.total_tokens,
               totalSessions: stats.total_sessions,
+              totalCost: parseFloat(stats.total_cost) || 0,
               favoriteModel: stats.favorite_model,
               favoriteTool: stats.favorite_tool,
               longestSessionMs: stats.longest_session_ms,

@@ -149,7 +149,7 @@ export interface ImportData {
 }
 
 // Fun fact metrics calculation utilities
-// Constants for calculations - REVISED for realistic estimates
+// Constants for calculations - RESEARCH-BASED estimates
 //
 // Key insight: Total tokens include massive cache read/creation tokens
 // - Cache tokens can be 100x larger than actual input/output tokens
@@ -161,10 +161,15 @@ const EFFECTIVE_CODE_FRACTION = 0.001; // ~0.1% of total tokens → actual code 
 
 const AVERAGE_YEARLY_DEV_SALARY = 130_000; // USD
 const TOKENS_PER_LINE_OF_CODE = 15; // Conservative: avg line ~60 chars = ~15 tokens
-// Conservative estimate: good devs write ~50-100 meaningful lines/day pre-AI
-const AVERAGE_HUMAN_LINES_PER_DAY = 75;
-// Estimate: 1000 code tokens saves ~10 min of work (writing, debugging, testing)
-const HOURS_SAVED_PER_1000_CODE_TOKENS = 0.15;
+
+// Research-based constants for time estimation:
+// - Studies show developers write ~10-80 LOC/day of production code
+// - 50 LOC/day is a commonly cited benchmark for quality production code
+// - Working 8 hours/day = 480 minutes
+// - Time per line = 480 / 50 = 9.6 minutes
+// Sources: IEEE studies, StackOverflow surveys, industry benchmarks
+const HUMAN_LINES_PER_DAY = 50; // Production-quality lines per 8-hour day
+const MINUTES_PER_LINE = 9.6; // 480 minutes / 50 lines
 
 export interface FunFactMetrics {
   salarySaved: number; // Amount saved in USD
@@ -173,16 +178,25 @@ export interface FunFactMetrics {
 }
 
 /**
- * Calculate salary savings based on estimated API spend
- * Logic: Only count effective code tokens (~0.1% of total), then estimate hours saved
- * Savings = value of hours saved - API cost
+ * Calculate salary savings based on AI-generated lines of code
+ * Logic:
+ * 1. Calculate effective code tokens (~0.1% of total due to cache inflation)
+ * 2. Convert to lines of code (15 tokens per line)
+ * 3. Estimate time saved using research benchmark: 9.6 minutes per line
+ *    (Based on 50 LOC/day in 8 hours for production-quality code)
+ * 4. Convert time to dollar value using hourly rate
+ * 5. Subtract API cost for net savings
  */
 export function calculateSalarySaved(totalTokens: number, estimatedApiSpend: number): number {
   // Only ~0.1% of tokens represent actual code output (due to cache inflation)
   const effectiveCodeTokens = totalTokens * EFFECTIVE_CODE_FRACTION;
 
-  // Estimate hours saved (1000 code tokens ≈ 30 min saved)
-  const hoursSaved = (effectiveCodeTokens / 1000) * HOURS_SAVED_PER_1000_CODE_TOKENS;
+  // Convert to lines of code
+  const linesOfCode = effectiveCodeTokens / TOKENS_PER_LINE_OF_CODE;
+
+  // Calculate hours saved based on research: 9.6 minutes per line
+  const minutesSaved = linesOfCode * MINUTES_PER_LINE;
+  const hoursSaved = minutesSaved / 60;
 
   // Hourly rate from yearly salary (assuming 2000 working hours/year)
   const hourlyRate = AVERAGE_YEARLY_DEV_SALARY / 2000; // $65/hour
@@ -207,6 +221,7 @@ export function calculateLinesOfCode(totalTokens: number): number {
  * Calculate productivity boost percentage
  * Logic: Compare AI-assisted daily code output to average human coder pre-AI
  * Returns percentage increase (e.g., 100 means you produce 100% more code = 2x)
+ * Based on research: developers write ~50 LOC/day of production code without AI
  */
 export function calculateProductivityBoostPercent(totalTokens: number, activeDays: number): number {
   if (activeDays === 0) return 0;
@@ -219,7 +234,7 @@ export function calculateProductivityBoostPercent(totalTokens: number, activeDay
 
   // Calculate how much AI adds on top of human baseline (as percentage)
   // e.g., if AI generates 50 lines/day and human baseline is 50, that's 100% boost
-  return Math.max(0, (aiLinesPerDay / AVERAGE_HUMAN_LINES_PER_DAY) * 100);
+  return Math.max(0, (aiLinesPerDay / HUMAN_LINES_PER_DAY) * 100);
 }
 
 /**

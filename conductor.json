@@ -1,1 +1,7 @@
-{  "scripts": {    "setup": "bun install",    "run": "bun run dev",    "archive": ""  }}
+{
+  "scripts": {
+    "setup": "export NVM_DIR=\"$HOME/.nvm\" && [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\" && nvm use 22 && pnpm install && cd packages/core && pnpm build && pnpm test",
+    "run": "export NVM_DIR=\"$HOME/.nvm\" && [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\" && nvm use 22 && bun run dev",
+    "archive": ""
+  }
+}
