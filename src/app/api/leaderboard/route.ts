@@ -61,26 +61,30 @@ export async function GET(request: Request) {
     }
 
     // Transform data for response
-    const transformed = (leaderboard as unknown as LeaderboardRow[]).map((entry, index) => {
-      const user = entry.users[0]; // Supabase returns array even with !inner
+    const transformed = (leaderboard as unknown as LeaderboardRow[])
+      .map((entry) => {
+        // Supabase !inner join returns a single object, not an array
+        const user = Array.isArray(entry.users) ? entry.users[0] : entry.users;
+        if (!user) return null;
 
-      return {
-        userId: user.id,
-        username: user.username,
-        displayName: user.display_name,
-        avatarUrl: user.avatar_url,
-        company: user.company,
-        totalTokens: entry.total_tokens,
-        totalSessions: entry.total_sessions,
-        currentStreak: entry.current_streak_days,
-        favoriteModel: entry.favorite_model,
-        estimatedSpend: estimateApiSpendUsd({
-          model: entry.favorite_model,
+        return {
+          userId: user.id,
+          username: user.username,
+          displayName: user.display_name,
+          avatarUrl: user.avatar_url,
+          company: user.company,
           totalTokens: entry.total_tokens,
-        }),
-        profileUrl: `/@${user.username}`,
-      };
-    });
+          totalSessions: entry.total_sessions,
+          currentStreak: entry.current_streak_days,
+          favoriteModel: entry.favorite_model,
+          estimatedSpend: estimateApiSpendUsd({
+            model: entry.favorite_model,
+            totalTokens: entry.total_tokens,
+          }),
+          profileUrl: `/@${user.username}`,
+        };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
     const ranked = transformed
       .sort((a, b) => b.estimatedSpend - a.estimatedSpend)
