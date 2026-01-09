@@ -575,3 +575,65 @@ The native core fetches pricing from two sources:
    - Cached to `~/.cache/vibetracking/pricing-openrouter.json`
 
 Cache TTL: 24 hours
+
+---
+
+## CLI Publishing (npm)
+
+The CLI is published to npm via GitHub Actions. The workflow builds native binaries for multiple platforms and publishes them as separate packages.
+
+### Published Packages
+
+| Package | Description |
+|---------|-------------|
+| `vibetracking` | Main CLI package |
+| `@vibetracking/core` | Native Rust core (auto-selects platform) |
+| `@vibetracking/core-darwin-x64` | macOS Intel |
+| `@vibetracking/core-darwin-arm64` | macOS Apple Silicon |
+| `@vibetracking/core-darwin-universal` | macOS Universal |
+| `@vibetracking/core-linux-x64-gnu` | Linux x64 (glibc) |
+| `@vibetracking/core-linux-arm64-gnu` | Linux ARM64 (glibc) |
+| `@vibetracking/core-win32-x64-msvc` | Windows x64 |
+| `@vibetracking/core-win32-arm64-msvc` | Windows ARM64 |
+
+### How to Publish a New Version
+
+1. **Update version numbers** in both package.json files:
+   - `packages/cli/package.json`
+   - `packages/core/package.json`
+   - Also update `optionalDependencies` versions in core's package.json
+
+2. **Commit and push to main**
+
+3. **Create and push a tag**:
+   ```bash
+   git tag cli-v0.2.0
+   git push origin cli-v0.2.0
+   ```
+
+4. **GitHub Actions will automatically**:
+   - Build native binaries for all 6 platforms
+   - Create universal macOS binary
+   - Publish `@vibetracking/core` and all platform packages
+   - Publish `vibetracking` CLI
+
+### Workflow Configuration
+
+- **File**: `.github/workflows/release.yml`
+- **Trigger**: Push tags matching `cli-v*`
+- **Secret required**: `NPM_TOKEN` (Granular Access Token with publish permissions)
+
+### Manual Trigger (Dry Run)
+
+You can test the workflow without publishing:
+1. Go to Actions → Release CLI
+2. Click "Run workflow"
+3. Check "Dry run" option
+
+### User Installation
+
+After publishing, users can install with:
+```bash
+bunx vibetracking          # One-off execution
+bun add -g vibetracking    # Global install
+```
