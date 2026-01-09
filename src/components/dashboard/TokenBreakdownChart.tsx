@@ -1,6 +1,6 @@
 "use client";
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, ChartCard, ChartTooltip } from "@/components/ui/charts";
 import { formatNumber } from "@/lib/utils";
 
 interface TokenUsage {
@@ -15,7 +15,7 @@ interface TokenBreakdownChartProps {
   tokenUsage: TokenUsage[];
 }
 
-const COLORS = {
+const TOKEN_COLORS: Record<string, string> = {
   input: "#D63384", // Pink
   output: "#0D6EFD", // Blue
   cacheRead: "#198754", // Green
@@ -23,7 +23,7 @@ const COLORS = {
   reasoning: "#6F42C1", // Purple
 };
 
-const LABELS: Record<string, string> = {
+const TOKEN_LABELS: Record<string, string> = {
   input: "Input",
   output: "Output",
   cacheRead: "Cache Read",
@@ -50,11 +50,11 @@ export function TokenBreakdownChart({ tokenUsage }: TokenBreakdownChartProps) {
 
   // Create chart data, filtering out zero values
   const chartData = [
-    { name: "input", value: totals.input, label: LABELS.input },
-    { name: "output", value: totals.output, label: LABELS.output },
-    { name: "cacheRead", value: totals.cacheRead, label: LABELS.cacheRead },
-    { name: "cacheWrite", value: totals.cacheWrite, label: LABELS.cacheWrite },
-    { name: "reasoning", value: totals.reasoning, label: LABELS.reasoning },
+    { key: "input", name: TOKEN_LABELS.input, value: totals.input, color: TOKEN_COLORS.input },
+    { key: "output", name: TOKEN_LABELS.output, value: totals.output, color: TOKEN_COLORS.output },
+    { key: "cacheRead", name: TOKEN_LABELS.cacheRead, value: totals.cacheRead, color: TOKEN_COLORS.cacheRead },
+    { key: "cacheWrite", name: TOKEN_LABELS.cacheWrite, value: totals.cacheWrite, color: TOKEN_COLORS.cacheWrite },
+    { key: "reasoning", name: TOKEN_LABELS.reasoning, value: totals.reasoning, color: TOKEN_COLORS.reasoning },
   ].filter((d) => d.value > 0);
 
   const total = chartData.reduce((sum, d) => sum + d.value, 0);
@@ -71,48 +71,25 @@ export function TokenBreakdownChart({ tokenUsage }: TokenBreakdownChartProps) {
     const data = payload[0].payload;
     const percentage = ((data.value / total) * 100).toFixed(1);
     return (
-      <div className="bg-white border border-[#232323] rounded-lg p-3 shadow-[2px_2px_0_#232323]">
-        <p className="font-bold text-sm mb-1">{data.label}</p>
-        <p className="text-sm text-[#232323]/70">
-          {formatNumber(data.value)} tokens ({percentage}%)
-        </p>
-      </div>
+      <ChartTooltip
+        title={data.name}
+        value={`${formatNumber(data.value)} tokens (${percentage}%)`}
+      />
     );
   };
 
   return (
-    <div className="card">
-      <h3 className="font-bold mb-4">Token Breakdown</h3>
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={100}
-              paddingAngle={2}
-              dataKey="value"
-              nameKey="label"
-            >
-              {chartData.map((entry) => (
-                <Cell
-                  key={entry.name}
-                  fill={COLORS[entry.name as keyof typeof COLORS]}
-                  stroke="#232323"
-                  strokeWidth={1}
-                />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              formatter={(value) => <span className="text-xs">{value}</span>}
-              wrapperStyle={{ fontSize: 11 }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartCard title="Token Breakdown" height={280}>
+      <PieChart
+        data={chartData}
+        innerRadius={60}
+        outerRadius={100}
+        tooltipContent={<CustomTooltip />}
+        showLegend
+        strokeColor="#232323"
+        strokeWidth={1}
+        height={280}
+      />
+    </ChartCard>
   );
 }

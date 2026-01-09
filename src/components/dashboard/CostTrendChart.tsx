@@ -1,15 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { AreaChart, ChartCard, ChartTooltip } from "@/components/ui/charts";
 import { formatCurrency } from "@/lib/utils";
 
 interface DailyActivity {
@@ -60,6 +52,12 @@ function filterByTimeRange(
   return data.filter((d) => d.date >= cutoffStr);
 }
 
+// Format date for display
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
 export function CostTrendChart({ dailyActivity }: CostTrendChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("30D");
 
@@ -81,12 +79,6 @@ export function CostTrendChart({ dailyActivity }: CostTrendChartProps) {
   const totalCost = filteredData.reduce((sum, d) => sum + d.cost, 0);
   const avgCost = totalCost / filteredData.length;
 
-  // Format date for x-axis
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
   // Custom tooltip
   const CustomTooltip = ({
     active,
@@ -99,75 +91,52 @@ export function CostTrendChart({ dailyActivity }: CostTrendChartProps) {
   }) => {
     if (!active || !payload || !payload.length || !label) return null;
     return (
-      <div className="bg-white border border-[#232323] rounded-lg p-3 shadow-[2px_2px_0_#232323]">
-        <p className="font-bold text-sm mb-1">{formatDate(label)}</p>
-        <p className="text-sm text-[#232323]/70">{formatCurrency(payload[0].value)}</p>
-      </div>
+      <ChartTooltip
+        title={formatDate(label)}
+        value={formatCurrency(payload[0].value)}
+      />
     );
   };
 
   const timeRangeOptions: TimeRange[] = ["7D", "30D", "90D"];
 
-  return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="font-bold">Cost Trend</h3>
-          <p className="text-xs text-[#232323]/50 mt-0.5">
-            Total: {formatCurrency(totalCost)} | Avg: {formatCurrency(avgCost)}/day
-          </p>
-        </div>
-        <div className="flex rounded-lg border border-[#232323]/20 overflow-hidden">
-          {timeRangeOptions.map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                timeRange === range
-                  ? "bg-[#232323] text-white"
-                  : "bg-white text-[#232323]/70 hover:bg-[#232323]/5"
-              }`}
-            >
-              {range}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="h-[250px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={filteredData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-            <defs>
-              <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#D63384" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#D63384" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#232323" strokeOpacity={0.1} />
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              tick={{ fontSize: 11, fill: "#232323", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={{ stroke: "#232323", strokeOpacity: 0.1 }}
-            />
-            <YAxis
-              tickFormatter={(v) => `$${v}`}
-              tick={{ fontSize: 11, fill: "#232323", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={{ stroke: "#232323", strokeOpacity: 0.1 }}
-              width={50}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="cost"
-              stroke="#D63384"
-              strokeWidth={2}
-              fill="url(#costGradient)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+  const TimeRangeSelector = (
+    <div className="flex rounded-lg border border-[#232323]/20 overflow-hidden">
+      {timeRangeOptions.map((range) => (
+        <button
+          key={range}
+          onClick={() => setTimeRange(range)}
+          className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+            timeRange === range
+              ? "bg-[#232323] text-white"
+              : "bg-white text-[#232323]/70 hover:bg-[#232323]/5"
+          }`}
+        >
+          {range}
+        </button>
+      ))}
     </div>
+  );
+
+  return (
+    <ChartCard
+      title="Cost Trend"
+      subtitle={`Total: ${formatCurrency(totalCost)} | Avg: ${formatCurrency(avgCost)}/day`}
+      rightSlot={TimeRangeSelector}
+      height={250}
+    >
+      <AreaChart
+        data={filteredData}
+        dataKey="cost"
+        xAxisKey="date"
+        color="#D63384"
+        gradient
+        gradientId="costTrendGradient"
+        xAxisFormatter={formatDate}
+        yAxisFormatter={(v) => `$${v}`}
+        tooltipContent={<CustomTooltip />}
+        height={250}
+      />
+    </ChartCard>
   );
 }
