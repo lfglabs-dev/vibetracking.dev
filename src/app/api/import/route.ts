@@ -55,6 +55,79 @@ interface TokenContributionData {
   contributions: DailyContribution[];
 }
 
+/**
+ * Normalize tool names to match database constraints
+ */
+function normalizeToolName(source: string): string {
+  const toolMap: Record<string, string> = {
+    opencode: "opencode",
+    claude: "claude",
+    codex: "codex",
+    gemini: "gemini",
+    cursor: "cursor",
+    amp: "amp",
+    droid: "droid",
+    claude_code: "claude_code",
+  };
+  return toolMap[source.toLowerCase()] || source.toLowerCase();
+}
+
+/**
+ * Calculate current and longest streaks from sorted dates
+ */
+function calculateStreaks(sortedDates: string[]): {
+  currentStreak: number;
+  longestStreak: number;
+} {
+  if (sortedDates.length === 0) {
+    return { currentStreak: 0, longestStreak: 0 };
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  let currentStreak = 0;
+  let longestStreak = 1;
+  let streak = 1;
+
+  // Calculate current streak (from most recent date backwards)
+  for (let i = sortedDates.length - 1; i >= 0; i--) {
+    if (i === sortedDates.length - 1) {
+      const daysDiff = dateDiffDays(sortedDates[i], today);
+      if (daysDiff <= 1) {
+        currentStreak = 1;
+      } else {
+        break;
+      }
+    } else {
+      const daysDiff = dateDiffDays(sortedDates[i], sortedDates[i + 1]);
+      if (daysDiff === 1) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Calculate longest streak
+  for (let i = 1; i < sortedDates.length; i++) {
+    const daysDiff = dateDiffDays(sortedDates[i - 1], sortedDates[i]);
+    if (daysDiff === 1) {
+      streak++;
+    } else {
+      longestStreak = Math.max(longestStreak, streak);
+      streak = 1;
+    }
+  }
+  longestStreak = Math.max(longestStreak, streak);
+
+  return { currentStreak, longestStreak };
+}
+
+function dateDiffDays(date1: string, date2: string): number {
+  const d1 = new Date(date1 + "T00:00:00Z");
+  const d2 = new Date(date2 + "T00:00:00Z");
+  return Math.abs(Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+}
+
 export async function POST(request: Request) {
   try {
     const data: TokenContributionData & { company?: string } = await request.json();
@@ -112,49 +185,75 @@ export async function POST(request: Request) {
     const toolTokens: Record<string, number> = {};
 
     for (const contribution of data.contributions) {
-      // Aggregate daily activity by source (tool)
+      // Aggregate sources by tool for daily_activity (multiple sources may have same tool)
+      const toolTotals = new Map<string, {
+        messageCount: number;
+        tokens: number;
+        cost: number;
+      }>();
+
       for (const sourceData of contribution.sources) {
-        const tool = sourceData.source;
+        const tool = normalizeToolName(sourceData.source);
         const totalTokens = sourceData.tokens.input + sourceData.tokens.output +
           sourceData.tokens.cacheRead + sourceData.tokens.cacheWrite + sourceData.tokens.reasoning;
 
-        await serviceSupabase.from("daily_activity").upsert(
+        // Aggregate for daily_activity
+        const existing = toolTotals.get(tool) || { messageCount: 0, tokens: 0, cost: 0 };
+        toolTotals.set(tool, {
+          messageCount: existing.messageCount + sourceData.messages,
+          tokens: existing.tokens + totalTokens,
+          cost: existing.cost + sourceData.cost,
+        });
+
+        // Insert token usage by model (use insert, not upsert - no unique constraint exists)
+        const { error: usageError } = await serviceSupabase.from("token_usage").insert({
+          user_id: userId,
+          date: contribution.date,
+          tool,
+          model: sourceData.modelId,
+          input_tokens: sourceData.tokens.input,
+          output_tokens: sourceData.tokens.output,
+          cache_read_tokens: sourceData.tokens.cacheRead,
+          cache_creation_tokens: sourceData.tokens.cacheWrite,
+          reasoning_tokens: sourceData.tokens.reasoning,
+          cost: sourceData.cost,
+        });
+
+        if (usageError) {
+          console.error("Error inserting token usage:", usageError);
+        }
+
+        // Track for favorites calculation
+        modelTokens[sourceData.modelId] = (modelTokens[sourceData.modelId] || 0) + totalTokens;
+        toolTokens[tool] = (toolTokens[tool] || 0) + totalTokens;
+      }
+
+      // Upsert daily activity for each tool (aggregated)
+      for (const [tool, totals] of toolTotals) {
+        const { error: activityError } = await serviceSupabase.from("daily_activity").upsert(
           {
             user_id: userId,
             date: contribution.date,
-            tool: tool,
-            message_count: sourceData.messages,
-            session_count: 1, // Sessions not tracked in new format
-            total_tokens: totalTokens,
+            tool,
+            message_count: totals.messageCount,
+            session_count: 1,
+            total_tokens: totals.tokens,
+            cost: totals.cost,
           },
           {
             onConflict: "user_id,date,tool",
           }
         );
 
-        // Insert token usage by model
-        await serviceSupabase.from("token_usage").upsert(
-          {
-            user_id: userId,
-            date: contribution.date,
-            tool: tool,
-            model: sourceData.modelId,
-            input_tokens: sourceData.tokens.input,
-            output_tokens: sourceData.tokens.output,
-          },
-          {
-            onConflict: "user_id,date,tool,model",
-          }
-        );
-
-        // Track for favorites calculation
-        modelTokens[sourceData.modelId] = (modelTokens[sourceData.modelId] || 0) + totalTokens;
-        toolTokens[tool] = (toolTokens[tool] || 0) + totalTokens;
+        if (activityError) {
+          console.error("Error upserting daily activity:", activityError);
+        }
       }
     }
 
     // Use summary from data
     const totalTokens = data.summary.totalTokens;
+    const totalCost = data.summary.totalCost;
     const totalSessions = data.summary.activeDays; // Use active days as proxy for sessions
 
     // Get date range from meta
@@ -180,22 +279,26 @@ export async function POST(request: Request) {
       }
     }
 
-    // Calculate streak (simplified - could be more accurate)
-    const currentStreakDays = 1; // TODO: Calculate from daily_activity
-    const longestStreakDays = 1;
-    const longestSessionMs = 0; // Not tracked in new format
+    // Calculate streaks from active dates
+    const activeDates = data.contributions
+      .filter(c => c.totals.tokens > 0)
+      .map(c => c.date)
+      .sort();
+
+    const { currentStreak, longestStreak } = calculateStreaks(activeDates);
 
     // Upsert user stats
-    await serviceSupabase.from("user_stats").upsert(
+    const { error: statsError } = await serviceSupabase.from("user_stats").upsert(
       {
         user_id: userId,
         total_tokens: totalTokens,
+        total_cost: totalCost,
         total_sessions: totalSessions,
         favorite_model: favoriteModel,
         favorite_tool: favoriteTool,
-        longest_session_ms: longestSessionMs,
-        longest_streak_days: longestStreakDays,
-        current_streak_days: currentStreakDays,
+        longest_session_ms: 0,
+        longest_streak_days: longestStreak,
+        current_streak_days: currentStreak,
         first_activity_date: firstActivityDate,
         last_activity_date: lastActivityDate,
       },
@@ -203,6 +306,10 @@ export async function POST(request: Request) {
         onConflict: "user_id",
       }
     );
+
+    if (statsError) {
+      console.error("Error upserting user stats:", statsError);
+    }
 
     // Generate sync token for CLI
     const syncToken = nanoid(32);
@@ -217,6 +324,7 @@ export async function POST(request: Request) {
       syncToken,
       stats: {
         totalTokens,
+        totalCost,
         totalSessions,
         favoriteModel,
       },
