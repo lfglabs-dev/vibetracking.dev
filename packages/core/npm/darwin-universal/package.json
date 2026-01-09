@@ -1,0 +1,16 @@
+{
+  "name": "@vibetracking/core-darwin-universal",
+  "version": "0.1.0",
+  "os": ["darwin"],
+  "main": "vibetracking-core.darwin-universal.node",
+  "files": ["vibetracking-core.darwin-universal.node"],
+  "description": "Native Rust core for vibetracking CLI (macOS Universal)",
+  "license": "MIT",
+  "engines": {
+    "node": ">= 16"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
+}

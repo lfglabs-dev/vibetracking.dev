@@ -1,0 +1,17 @@
+{
+  "name": "@vibetracking/core-win32-arm64-msvc",
+  "version": "0.1.0",
+  "os": ["win32"],
+  "cpu": ["arm64"],
+  "main": "vibetracking-core.win32-arm64-msvc.node",
+  "files": ["vibetracking-core.win32-arm64-msvc.node"],
+  "description": "Native Rust core for vibetracking CLI (Windows ARM64)",
+  "license": "MIT",
+  "engines": {
+    "node": ">= 16"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
+}
