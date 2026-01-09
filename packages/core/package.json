@@ -30,7 +30,6 @@
     "build": "napi build --platform --release",
     "build:platform": "napi build --platform --release",
     "build:debug": "napi build",
-    "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
     "test:rust": "cargo test --features noop",
     "test:all": "bun run test:rust && bun run test",
