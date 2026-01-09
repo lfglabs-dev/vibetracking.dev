@@ -68,6 +68,7 @@ export const MOCK_USERS: Record<string, {
 export const MOCK_STATS: Record<string, {
   total_tokens: number;
   total_sessions: number;
+  total_cost: number;
   favorite_model: string | null;
   favorite_tool: string | null;
   longest_session_ms: number;
@@ -80,6 +81,7 @@ export const MOCK_STATS: Record<string, {
   sarah_codes: {
     total_tokens: 45_892_341,
     total_sessions: 1247,
+    total_cost: 312.45,
     favorite_model: "claude-sonnet-4-20250514",
     favorite_tool: "claude_code",
     longest_session_ms: 14_400_000, // 4 hours
@@ -92,6 +94,7 @@ export const MOCK_STATS: Record<string, {
   alex_dev: {
     total_tokens: 38_127_892,
     total_sessions: 982,
+    total_cost: 542.18,
     favorite_model: "claude-opus-4-20250514",
     favorite_tool: "cursor",
     longest_session_ms: 10_800_000, // 3 hours
@@ -104,6 +107,7 @@ export const MOCK_STATS: Record<string, {
   maya_builds: {
     total_tokens: 29_451_203,
     total_sessions: 756,
+    total_cost: 198.32,
     favorite_model: "claude-sonnet-4-20250514",
     favorite_tool: "claude_code",
     longest_session_ms: 7_200_000, // 2 hours
@@ -116,6 +120,7 @@ export const MOCK_STATS: Record<string, {
   kevin_hacks: {
     total_tokens: 21_347_892,
     total_sessions: 543,
+    total_cost: 156.89,
     favorite_model: "gpt-4o",
     favorite_tool: "codex",
     longest_session_ms: 5_400_000, // 1.5 hours
@@ -128,6 +133,7 @@ export const MOCK_STATS: Record<string, {
   emma_codes: {
     total_tokens: 18_923_451,
     total_sessions: 489,
+    total_cost: 127.45,
     favorite_model: "claude-sonnet-4-20250514",
     favorite_tool: "cursor",
     longest_session_ms: 9_000_000, // 2.5 hours
@@ -140,6 +146,7 @@ export const MOCK_STATS: Record<string, {
   james_dev: {
     total_tokens: 12_451_892,
     total_sessions: 356,
+    total_cost: 42.67,
     favorite_model: "claude-haiku-3-5-20241022",
     favorite_tool: "claude_code",
     longest_session_ms: 3_600_000, // 1 hour
@@ -152,6 +159,7 @@ export const MOCK_STATS: Record<string, {
   lisa_builds: {
     total_tokens: 9_823_451,
     total_sessions: 287,
+    total_cost: 65.78,
     favorite_model: "claude-sonnet-4-20250514",
     favorite_tool: "cursor",
     longest_session_ms: 4_500_000, // 1.25 hours
@@ -164,6 +172,7 @@ export const MOCK_STATS: Record<string, {
   mike_codes: {
     total_tokens: 7_451_234,
     total_sessions: 198,
+    total_cost: 89.12,
     favorite_model: "claude-opus-4-20250514",
     favorite_tool: "claude_code",
     longest_session_ms: 2_700_000, // 45 minutes

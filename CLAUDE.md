@@ -244,6 +244,9 @@ SUPABASE_SERVICE_ROLE_KEY=xxx  # For server-side operations
 ### Development
 
 ```bash
+# Ensure Node.js 22+ is active (if using nvm)
+nvm use 22
+
 # Install dependencies
 pnpm install
 

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { formatNumber, formatCurrency } from "@/lib/utils";
-import { estimateApiSpendUsd } from "@/lib/pricing";
 import { FunComparison } from "@/components/dashboard/FunComparison";
 import { UsageByToolChart } from "@/components/dashboard/UsageByToolChart";
 import { UsageByModelChart } from "@/components/dashboard/UsageByModelChart";
@@ -28,6 +27,7 @@ interface ProfilePageProps {
   stats: {
     totalTokens: number;
     totalSessions: number;
+    totalCost: number;
     favoriteModel: string | null;
     favoriteTool: string | null;
     longestSessionMs: number;
@@ -88,13 +88,8 @@ export function ProfilePage({
   // Calculate active days from daily activity
   const activeDays = new Set(dailyActivity.map((a) => a.date)).size;
 
-  // Calculate estimated API spend for fun facts
-  const estimatedApiSpend = stats
-    ? estimateApiSpendUsd({
-        model: stats.favoriteModel,
-        totalTokens: stats.totalTokens,
-      })
-    : 0;
+  // Use actual cost from database for fun facts (more accurate than estimation)
+  const estimatedApiSpend = stats?.totalCost ?? 0;
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -390,37 +385,51 @@ export function ProfilePage({
 
               <div className="card bg-gradient-to-br from-[#FEA6CC]/10 to-[#B3D8F5]/10 flex flex-col">
                 <h3 className="font-bold mb-4">Insights</h3>
-                <div className="space-y-4 flex-1 flex flex-col justify-center">
-                  {/* Power User Ranking */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-[#232323]/60">Power User Ranking</span>
-                      <span className="text-lg font-black text-[#D63384]">Top {stats.userPercentile}%</span>
-                    </div>
-                    <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#D63384] rounded-full transition-all duration-500"
-                        style={{ width: `${100 - stats.userPercentile}%` }}
-                      />
-                    </div>
-                  </div>
-                  {/* Reasoning Tokens */}
-                  {(() => {
-                    const totals = tokenUsage.reduce(
-                      (acc, t) => ({
-                        output: acc.output + t.outputTokens,
-                        reasoning: acc.reasoning + t.reasoningTokens,
-                      }),
-                      { output: 0, reasoning: 0 }
-                    );
-                    const totalGenerated = totals.output + totals.reasoning;
-                    const reasoningPct = totalGenerated > 0 ? (totals.reasoning / totalGenerated) * 100 : 0;
-                    if (totals.reasoning === 0) return null;
-                    const label = reasoningPct >= 50 ? "Heavy" : reasoningPct >= 25 ? "Deep" : "Light";
+                {(() => {
+                  const totals = tokenUsage.reduce(
+                    (acc, t) => ({
+                      output: acc.output + t.outputTokens,
+                      reasoning: acc.reasoning + t.reasoningTokens,
+                    }),
+                    { output: 0, reasoning: 0 }
+                  );
+                  const totalGenerated = totals.output + totals.reasoning;
+                  const reasoningPct = totalGenerated > 0 ? (totals.reasoning / totalGenerated) * 100 : 0;
+                  const hasReasoning = totals.reasoning > 0;
+                  const label = reasoningPct >= 50 ? "Heavy" : reasoningPct >= 25 ? "Deep" : "Light";
+
+                  // When no reasoning data, show just ranking without progress bar
+                  if (!hasReasoning) {
                     return (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center">
+                          <span className="text-4xl font-black text-[#D63384]">Top {stats.userPercentile}%</span>
+                          <p className="text-sm text-[#232323]/60 mt-2">Power User Ranking</p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // When reasoning exists, show both metrics with progress bars
+                  return (
+                    <div className="space-y-4 flex-1 flex flex-col justify-center">
+                      {/* Power User Ranking */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-[#232323]/60">🧠 {label} Thinker</span>
+                          <span className="text-sm text-[#232323]/60">Power User Ranking</span>
+                          <span className="text-lg font-black text-[#D63384]">Top {stats.userPercentile}%</span>
+                        </div>
+                        <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#D63384] rounded-full transition-all duration-500"
+                            style={{ width: `${100 - stats.userPercentile}%` }}
+                          />
+                        </div>
+                      </div>
+                      {/* Reasoning Tokens */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-[#232323]/60">{label} Thinker</span>
                           <span className="text-lg font-black text-[#6F42C1]">{reasoningPct.toFixed(1)}%</span>
                         </div>
                         <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
@@ -430,9 +439,9 @@ export function ProfilePage({
                           />
                         </div>
                       </div>
-                    );
-                  })()}
-                </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -12,12 +12,15 @@ import {
   Legend,
 } from "recharts";
 import { formatModelName } from "@/lib/formatModelName";
+import { TimeframeSelector, filterByTimeframe, type Timeframe } from "./TimeframeSelector";
 
 interface TokenUsage {
   date: string;
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
 }
 
 interface ModelMigrationTimelineProps {
@@ -49,6 +52,16 @@ function getModelColor(model: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
+// Models to exclude from the timeline chart (synthetic/placeholder entries)
+const EXCLUDED_MODELS = new Set([
+  "<synthetic>",
+  "auto",
+  "unknown",
+  "cursor-small",
+  "agent_review",
+  "composer-1",
+]);
+
 // Aggregate data by week and model
 function aggregateByWeekAndModel(
   data: TokenUsage[]
@@ -56,6 +69,9 @@ function aggregateByWeekAndModel(
   const weekMap = new Map<string, Map<string, number>>();
 
   data.forEach((item) => {
+    // Skip excluded models
+    if (EXCLUDED_MODELS.has(item.model)) return;
+
     const date = new Date(item.date);
     // Get Monday of the week
     const dayOfWeek = date.getDay();
@@ -68,7 +84,9 @@ function aggregateByWeekAndModel(
       weekMap.set(weekKey, new Map());
     }
     const modelMap = weekMap.get(weekKey)!;
-    const tokens = item.inputTokens + item.outputTokens;
+    // Include all token types for accurate total
+    const tokens = item.inputTokens + item.outputTokens +
+                   (item.cacheReadTokens || 0) + (item.cacheCreationTokens || 0);
     modelMap.set(item.model, (modelMap.get(item.model) || 0) + tokens);
   });
 
@@ -86,25 +104,32 @@ function aggregateByWeekAndModel(
 }
 
 export function ModelMigrationTimeline({ tokenUsage }: ModelMigrationTimelineProps) {
+  const [timeframe, setTimeframe] = useState<Timeframe>("all");
+
   const { chartData, models } = useMemo(() => {
     if (!tokenUsage || tokenUsage.length === 0) {
       return { chartData: [], models: [] };
     }
 
-    const aggregated = aggregateByWeekAndModel(tokenUsage);
+    // Filter by timeframe
+    const filteredUsage = filterByTimeframe(tokenUsage, timeframe);
 
-    // Get all unique models
+    const aggregated = aggregateByWeekAndModel(filteredUsage);
+
+    // Get all unique models (excluding synthetic ones)
     const modelSet = new Set<string>();
     aggregated.forEach((week) => {
       Object.keys(week).forEach((key) => {
-        if (key !== "week") modelSet.add(key);
+        if (key !== "week" && !EXCLUDED_MODELS.has(key)) modelSet.add(key);
       });
     });
 
-    // Sort models by total usage
+    // Sort models by total usage (including cache tokens)
     const modelTotals = new Map<string, number>();
-    tokenUsage.forEach((item) => {
-      const tokens = item.inputTokens + item.outputTokens;
+    filteredUsage.forEach((item) => {
+      if (EXCLUDED_MODELS.has(item.model)) return;
+      const tokens = item.inputTokens + item.outputTokens +
+                     (item.cacheReadTokens || 0) + (item.cacheCreationTokens || 0);
       modelTotals.set(item.model, (modelTotals.get(item.model) || 0) + tokens);
     });
 
@@ -116,7 +141,7 @@ export function ModelMigrationTimeline({ tokenUsage }: ModelMigrationTimelinePro
     const topModels = sortedModels.slice(0, 6);
 
     return { chartData: aggregated, models: topModels };
-  }, [tokenUsage]);
+  }, [tokenUsage, timeframe]);
 
   if (!tokenUsage || tokenUsage.length === 0 || chartData.length < 2) {
     return null;
@@ -171,7 +196,10 @@ export function ModelMigrationTimeline({ tokenUsage }: ModelMigrationTimelinePro
 
   return (
     <div className="card">
-      <h3 className="font-bold mb-4">Model Usage Over Time</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold">Model Usage Over Time</h3>
+        <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+      </div>
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart

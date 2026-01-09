@@ -280,12 +280,12 @@ export async function POST(request: Request) {
           if (error) console.error("daily_activity error:", error);
         }
       })(),
-      // Token usage chunks (insert, not upsert)
+      // Token usage chunks (upsert to handle re-imports)
       (async () => {
         for (const chunk of tokenChunks) {
           const { error } = await serviceSupabase
             .from("token_usage")
-            .insert(chunk);
+            .upsert(chunk, { onConflict: "user_id,date,tool,model" });
           if (error) console.error("token_usage error:", error);
         }
       })(),

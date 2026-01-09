@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   BarChart,
   Bar,
@@ -14,6 +15,7 @@ import { formatNumber, formatCurrency } from "@/lib/utils";
 import { estimateApiSpendUsd } from "@/lib/pricing";
 import { formatModelName } from "@/lib/formatModelName";
 import type { DisplayUnit } from "./UnitToggle";
+import { TimeframeSelector, filterByTimeframe, type Timeframe } from "./TimeframeSelector";
 
 interface TokenUsage {
   date: string;
@@ -21,6 +23,10 @@ interface TokenUsage {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  reasoningTokens?: number;
+  cost: number; // Pre-calculated cost from database (includes cache tokens)
 }
 
 interface UsageByModelChartProps {
@@ -40,27 +46,57 @@ const MODEL_COLORS = [
   "#DC3545", // Red
 ];
 
+// Models to exclude from charts (synthetic/placeholder entries)
+const EXCLUDED_MODELS = new Set([
+  "<synthetic>",
+  "auto",
+  "unknown",
+  "cursor-small",
+  "agent_review",
+  "composer-1",
+]);
+
 export function UsageByModelChart({ tokenUsage, unit }: UsageByModelChartProps) {
+  const [timeframe, setTimeframe] = useState<Timeframe>("all");
+
   if (!tokenUsage || tokenUsage.length === 0) {
     return null;
   }
 
-  // Aggregate total tokens by model
-  const modelTotals = new Map<string, { inputTokens: number; outputTokens: number }>();
-  tokenUsage.forEach((item) => {
-    const existing = modelTotals.get(item.model) || { inputTokens: 0, outputTokens: 0 };
+  // Filter by timeframe
+  const filteredUsage = filterByTimeframe(tokenUsage, timeframe);
+
+  // Aggregate totals by model (excluding synthetic/placeholder models)
+  // Use pre-calculated cost from database which includes cache tokens
+  const modelTotals = new Map<string, { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheCreationTokens: number; cost: number }>();
+  filteredUsage.forEach((item) => {
+    // Skip excluded models
+    if (EXCLUDED_MODELS.has(item.model)) return;
+    // Skip entries with no tokens and no cost
+    const hasTokens = item.inputTokens > 0 || item.outputTokens > 0 ||
+                      (item.cacheReadTokens || 0) > 0 || (item.cacheCreationTokens || 0) > 0;
+    if (!hasTokens && item.cost === 0) return;
+
+    const existing = modelTotals.get(item.model) || { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, cost: 0 };
     modelTotals.set(item.model, {
       inputTokens: existing.inputTokens + item.inputTokens,
       outputTokens: existing.outputTokens + item.outputTokens,
+      cacheReadTokens: existing.cacheReadTokens + (item.cacheReadTokens || 0),
+      cacheCreationTokens: existing.cacheCreationTokens + (item.cacheCreationTokens || 0),
+      cost: existing.cost + item.cost,
     });
   });
 
   // Create chart data sorted by total usage
   const chartData = [...modelTotals.entries()]
-    .map(([model, tokens]) => {
-      const totalTokens = tokens.inputTokens + tokens.outputTokens;
+    .map(([model, totals]) => {
+      // Include all token types for accurate total
+      const totalTokens = totals.inputTokens + totals.outputTokens +
+                          totals.cacheReadTokens + totals.cacheCreationTokens;
+      // Use pre-calculated cost from database (includes cache tokens) for USD mode
+      // Fall back to estimation only if cost is 0 (legacy data)
       const value = unit === "usd"
-        ? estimateApiSpendUsd({ model, totalTokens })
+        ? (totals.cost > 0 ? totals.cost : estimateApiSpendUsd({ model, totalTokens }))
         : totalTokens;
       return {
         model,
@@ -69,6 +105,7 @@ export function UsageByModelChart({ tokenUsage, unit }: UsageByModelChartProps) 
         totalTokens,
       };
     })
+    .filter((item) => item.value > 0) // Remove zero-value entries
     .sort((a, b) => b.value - a.value)
     .slice(0, 8); // Limit to top 8 models
 
@@ -95,10 +132,26 @@ export function UsageByModelChart({ tokenUsage, unit }: UsageByModelChartProps) 
     return formatNumber(value);
   };
 
+  // Handle empty filtered data
+  if (chartData.length === 0) {
+    return (
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold">Usage by Model</h3>
+          <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+        </div>
+        <div className="h-[300px] flex items-center justify-center text-[#232323]/40 text-sm">
+          No data for selected timeframe
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold">Usage by Model</h3>
+        <TimeframeSelector value={timeframe} onChange={setTimeframe} />
       </div>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
