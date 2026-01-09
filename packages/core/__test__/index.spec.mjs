@@ -26,54 +26,69 @@ testFn("healthCheck returns expected message", (t) => {
   t.is(nativeModule.healthCheck(), "vibetracking-core is healthy!");
 });
 
-testFn("scanSessions with empty directory returns zeros", (t) => {
-  const tmpDir = join(__dirname, "tmp-scan-test-" + Date.now());
+testFn("parseLocalSources with empty directory returns zeros", (t) => {
+  const tmpDir = join(__dirname, "tmp-parse-test-" + Date.now());
   mkdirSync(tmpDir, { recursive: true });
 
   try {
-    const stats = nativeModule.scanSessions(tmpDir, ["opencode", "claude"]);
-    t.is(stats.totalFiles, 0);
-    t.is(stats.opencodeFiles, 0);
-    t.is(stats.claudeFiles, 0);
-    t.is(stats.codexFiles, 0);
-    t.is(stats.geminiFiles, 0);
+    const result = nativeModule.parseLocalSources({
+      homeDir: tmpDir,
+      sources: ["opencode", "claude"],
+    });
+    t.is(result.opencodeCount, 0);
+    t.is(result.claudeCount, 0);
+    t.is(result.codexCount, 0);
+    t.is(result.geminiCount, 0);
+    t.is(result.messages.length, 0);
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 
-testFn("scanSessions finds OpenCode files in fixtures", (t) => {
+testFn("parseLocalSources finds OpenCode files in fixtures", (t) => {
   const fixturesDir = join(__dirname, "fixtures");
-  
+
   if (!existsSync(fixturesDir)) {
     t.pass("Fixtures directory not found, skipping");
     return;
   }
 
-  const stats = nativeModule.scanSessions(fixturesDir, ["opencode"]);
-  t.true(stats.opencodeFiles >= 1, "Should find at least 1 OpenCode file");
+  const result = nativeModule.parseLocalSources({
+    homeDir: fixturesDir,
+    sources: ["opencode"],
+  });
+  t.true(result.opencodeCount >= 1, "Should find at least 1 OpenCode file");
 });
 
-testFn("scanSessions finds Claude files in fixtures", (t) => {
+testFn("parseLocalSources finds Claude files in fixtures", (t) => {
   const fixturesDir = join(__dirname, "fixtures");
-  
+
   if (!existsSync(fixturesDir)) {
     t.pass("Fixtures directory not found, skipping");
     return;
   }
 
-  const stats = nativeModule.scanSessions(fixturesDir, ["claude"]);
-  t.true(stats.claudeFiles >= 1, "Should find at least 1 Claude file");
+  const result = nativeModule.parseLocalSources({
+    homeDir: fixturesDir,
+    sources: ["claude"],
+  });
+  t.true(result.claudeCount >= 1, "Should find at least 1 Claude file");
 });
 
-testFn("generateGraph returns valid structure", (t) => {
+testFn("finalizeGraph returns valid structure", async (t) => {
   const tmpDir = join(__dirname, "tmp-graph-test-" + Date.now());
   setupMockOpenCodeSession(tmpDir);
 
   try {
-    const result = nativeModule.generateGraph({
+    const localMessages = nativeModule.parseLocalSources({
       homeDir: tmpDir,
       sources: ["opencode"],
+    });
+
+    const result = await nativeModule.finalizeGraph({
+      homeDir: tmpDir,
+      localMessages,
+      includeCursor: false,
     });
 
     // Verify structure
@@ -91,14 +106,20 @@ testFn("generateGraph returns valid structure", (t) => {
   }
 });
 
-testFn("generateGraph with year filter", (t) => {
+testFn("finalizeGraph with year filter", async (t) => {
   const tmpDir = join(__dirname, "tmp-year-test-" + Date.now());
   setupMockOpenCodeSession(tmpDir);
 
   try {
-    const result = nativeModule.generateGraph({
+    const localMessages = nativeModule.parseLocalSources({
       homeDir: tmpDir,
       sources: ["opencode"],
+    });
+
+    const result = await nativeModule.finalizeGraph({
+      homeDir: tmpDir,
+      localMessages,
+      includeCursor: false,
       year: "2024",
     });
 
@@ -111,14 +132,20 @@ testFn("generateGraph with year filter", (t) => {
   }
 });
 
-testFn("generateGraph with date range filter", (t) => {
+testFn("finalizeGraph with date range filter", async (t) => {
   const tmpDir = join(__dirname, "tmp-range-test-" + Date.now());
   setupMockOpenCodeSession(tmpDir);
 
   try {
-    const result = nativeModule.generateGraph({
+    const localMessages = nativeModule.parseLocalSources({
       homeDir: tmpDir,
       sources: ["opencode"],
+    });
+
+    const result = await nativeModule.finalizeGraph({
+      homeDir: tmpDir,
+      localMessages,
+      includeCursor: false,
       since: "2024-12-01",
       until: "2024-12-31",
     });
@@ -133,14 +160,20 @@ testFn("generateGraph with date range filter", (t) => {
   }
 });
 
-testFn("generateGraph calculates token breakdown", (t) => {
+testFn("finalizeGraph calculates token breakdown", async (t) => {
   const tmpDir = join(__dirname, "tmp-tokens-test-" + Date.now());
   setupMockOpenCodeSession(tmpDir);
 
   try {
-    const result = nativeModule.generateGraph({
+    const localMessages = nativeModule.parseLocalSources({
       homeDir: tmpDir,
       sources: ["opencode"],
+    });
+
+    const result = await nativeModule.finalizeGraph({
+      homeDir: tmpDir,
+      localMessages,
+      includeCursor: false,
     });
 
     if (result.contributions.length > 0) {
@@ -156,14 +189,20 @@ testFn("generateGraph calculates token breakdown", (t) => {
   }
 });
 
-testFn("generateGraph handles empty directory gracefully", (t) => {
+testFn("finalizeGraph handles empty directory gracefully", async (t) => {
   const tmpDir = join(__dirname, "tmp-empty-test-" + Date.now());
   mkdirSync(tmpDir, { recursive: true });
 
   try {
-    const result = nativeModule.generateGraph({
+    const localMessages = nativeModule.parseLocalSources({
       homeDir: tmpDir,
       sources: ["opencode", "claude"],
+    });
+
+    const result = await nativeModule.finalizeGraph({
+      homeDir: tmpDir,
+      localMessages,
+      includeCursor: false,
     });
 
     t.truthy(result);
@@ -174,17 +213,23 @@ testFn("generateGraph handles empty directory gracefully", (t) => {
   }
 });
 
-testFn("generateGraph with fixtures directory", (t) => {
+testFn("finalizeGraph with fixtures directory", async (t) => {
   const fixturesDir = join(__dirname, "fixtures");
-  
+
   if (!existsSync(fixturesDir)) {
     t.pass("Fixtures directory not found, skipping");
     return;
   }
 
-  const result = nativeModule.generateGraph({
+  const localMessages = nativeModule.parseLocalSources({
     homeDir: fixturesDir,
     sources: ["opencode", "claude"],
+  });
+
+  const result = await nativeModule.finalizeGraph({
+    homeDir: fixturesDir,
+    localMessages,
+    includeCursor: false,
   });
 
   t.truthy(result);
