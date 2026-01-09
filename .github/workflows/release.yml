@@ -194,7 +194,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @vibetracking/core
+      - name: Publish @starknetid/vibetracking-core
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: npm publish --access public --provenance
         working-directory: packages/core
@@ -215,8 +215,8 @@ jobs:
       - name: Summary
         run: |
           echo "## Published Packages" >> $GITHUB_STEP_SUMMARY
-          echo "- @vibetracking/core@0.1.0" >> $GITHUB_STEP_SUMMARY
-          echo "- vibetracking@0.1.0" >> $GITHUB_STEP_SUMMARY
+          echo "- @starknetid/vibetracking-core" >> $GITHUB_STEP_SUMMARY
+          echo "- vibetracking" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Install" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY

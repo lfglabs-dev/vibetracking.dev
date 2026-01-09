@@ -8,7 +8,7 @@
  * Communication: file (JSON input) -> stdout (JSON output)
  */
 
-import nativeCore from "@vibetracking/core";
+import nativeCore from "@starknetid/vibetracking-core";
 import { readFileSync } from "node:fs";
 
 interface NativeRunnerRequest {

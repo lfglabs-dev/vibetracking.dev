@@ -192,7 +192,7 @@ let loadError: Error | null = null;
 try {
   // Type assertion needed because dynamic import returns module namespace
   // nativeCore.version() is called directly, async functions go through subprocess
-  nativeCore = await import("@vibetracking/core").then(
+  nativeCore = await import("@starknetid/vibetracking-core").then(
     (m) => (m.default || m) as unknown as NativeCore
   );
 } catch (e) {

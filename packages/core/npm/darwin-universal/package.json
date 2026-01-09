@@ -1,5 +1,5 @@
 {
-  "name": "@vibetracking/core-darwin-universal",
+  "name": "@starknetid/vibetracking-core-darwin-universal",
   "version": "0.1.0",
   "os": ["darwin"],
   "main": "vibetracking-core.darwin-universal.node",
