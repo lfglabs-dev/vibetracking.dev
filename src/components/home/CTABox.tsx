@@ -37,7 +37,7 @@ export function CTABox() {
 
       {/* Subtitle */}
       <p className="text-lg md:text-xl text-[#232323]/70 mb-8 max-w-xl mx-auto">
-        Track your AI coding usage across Claude Code, Codex, and Cursor. One command. Zero config.
+        Track your AI coding usage across Claude Code, Cursor, Codex, Gemini, Amp & more. One command. Zero config.
       </p>
 
       {/* Command Box */}
