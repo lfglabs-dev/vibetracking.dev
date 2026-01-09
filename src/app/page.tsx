@@ -266,7 +266,7 @@ export default async function Home() {
           {/* Footer */}
           <footer className="mt-12 text-center text-sm text-[#232323]/50">
             <p>
-              Track your AI coding vibes with Claude Code, Codex, and Cursor
+              Track your AI coding vibes across 7 tools
             </p>
           </footer>
         </div>
