@@ -32,7 +32,7 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@vibetracking/core": "^0.1.0",
+    "@vibetracking/core": "workspace:*",
     "clipboardy": "^5.0.2",
     "commander": "^14.0.2",
     "csv-parse": "^5.6.0",
