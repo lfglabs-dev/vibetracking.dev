@@ -2,6 +2,11 @@
 // Types
 // ============================================
 
+export interface ToolStats {
+  tokens: number;
+  sessions: number;
+}
+
 export interface BattleStats {
   userId: string;
   username: string;
@@ -15,6 +20,12 @@ export interface BattleStats {
   favoriteTool: string | null;
   estimatedSpend: number;
   activeDays: number;
+  // Per-tool breakdown (optional for backwards compatibility)
+  toolStats?: {
+    claude?: ToolStats;
+    cursor?: ToolStats;
+    codex?: ToolStats;
+  };
 }
 
 export interface StatComparison {

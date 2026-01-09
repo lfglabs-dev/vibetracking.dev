@@ -138,3 +138,300 @@ body {
 .animate-bounce-in {
   animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
 }
+
+/* ==========================================
+   Battle Wrapped Slide Animations
+   ========================================== */
+
+/* Slide fade in */
+@keyframes slide-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-slide-fade-in {
+  animation: slide-fade-in 0.4s ease-out forwards;
+}
+
+/* Slide up and fade in */
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up-fade 0.5s ease-out forwards;
+}
+
+/* Scale up pop effect */
+@keyframes scale-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-pop {
+  animation: scale-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Pop in for speech bubbles */
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(var(--bubble-rotate, -3deg));
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.1) rotate(var(--bubble-rotate, -3deg));
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(var(--bubble-rotate, -3deg));
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Simple fade in */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+/* Winner pulse glow */
+@keyframes winner-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(25, 135, 84, 0);
+  }
+}
+
+.animate-winner-pulse {
+  animation: winner-pulse 2s ease-in-out infinite;
+}
+
+/* Crown bounce for final reveal */
+@keyframes crown-bounce {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-10deg);
+  }
+  50% {
+    transform: scale(1.3) rotate(5deg);
+  }
+  70% {
+    transform: scale(0.9) rotate(-3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-crown-bounce {
+  animation: crown-bounce 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+/* Staggered animation delays */
+.animate-delay-0 { animation-delay: 0ms; }
+.animate-delay-100 { animation-delay: 100ms; }
+.animate-delay-200 { animation-delay: 200ms; }
+.animate-delay-300 { animation-delay: 300ms; }
+.animate-delay-400 { animation-delay: 400ms; }
+.animate-delay-500 { animation-delay: 500ms; }
+.animate-delay-650 { animation-delay: 650ms; }
+.animate-delay-800 { animation-delay: 800ms; }
+
+/* Initial state for animated elements */
+.animate-initial {
+  opacity: 0;
+}
+
+/* ==========================================
+   Speech Bubble Styles
+   ========================================== */
+
+.speech-bubble {
+  position: relative;
+  background: var(--color-white);
+  border: 2px solid var(--color-black);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  max-width: 180px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Large speech bubble (for regular rounds) */
+.speech-bubble-large {
+  padding: 14px 20px;
+  font-size: 16px;
+  max-width: 240px;
+  border-radius: 16px;
+}
+
+/* Extra large speech bubble (for bonus round) */
+.speech-bubble-xlarge {
+  padding: 20px 28px;
+  font-size: 20px;
+  max-width: 320px;
+  border-radius: 20px;
+}
+
+/* Tail pointing left (bubble on right of sticker) */
+.speech-bubble-tail-left::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 8px;
+  border-style: solid;
+  border-color: transparent var(--color-black) transparent transparent;
+}
+
+.speech-bubble-tail-left::after {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent var(--color-white) transparent transparent;
+}
+
+/* Tail pointing right (bubble on left of sticker) */
+.speech-bubble-tail-right::before {
+  content: '';
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 8px;
+  border-style: solid;
+  border-color: transparent transparent transparent var(--color-black);
+}
+
+.speech-bubble-tail-right::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent transparent var(--color-white);
+}
+
+/* Tail pointing down-left (bubble above sticker) */
+.speech-bubble-tail-bottom-left::before {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 20px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: var(--color-black) transparent transparent transparent;
+}
+
+.speech-bubble-tail-bottom-left::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 22px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--color-white) transparent transparent transparent;
+}
+
+/* Tail pointing down-right (bubble above sticker on right) */
+.speech-bubble-tail-bottom-right::before {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  right: 20px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: var(--color-black) transparent transparent transparent;
+}
+
+.speech-bubble-tail-bottom-right::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  right: 22px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--color-white) transparent transparent transparent;
+}
+
+/* ==========================================
+   Battle Slide Container
+   ========================================== */
+
+.battle-slide {
+  width: 800px;
+  height: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Battle wrapper - fills viewport without scrolling */
+.battle-wrapper {
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.battle-wrapper-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  padding: 16px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+}

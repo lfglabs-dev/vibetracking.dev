@@ -17,11 +17,13 @@ export const metadata: Metadata = {
     description: "Track your AI coding vibes",
     type: "website",
     siteName: "Vibetracking",
+    images: ["/previews/preview.webp"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Vibetracking",
     description: "Track your AI coding vibes",
+    images: ["/previews/preview.webp"],
   },
 };
 

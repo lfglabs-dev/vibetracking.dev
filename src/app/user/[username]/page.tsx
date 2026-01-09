@@ -42,13 +42,13 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     openGraph: {
       title: `${displayName} | vibetracking`,
       description: `Check out ${displayName}'s AI coding stats on vibetracking`,
-      images: [`/og/user/${decodedUsername}`],
+      images: [`/og/user/${decodedUsername}`, "/previews/preview.webp"],
     },
     twitter: {
       card: "summary_large_image",
       title: `${displayName} | vibetracking`,
       description: `Check out ${displayName}'s AI coding stats on vibetracking`,
-      images: [`/og/user/${decodedUsername}`],
+      images: [`/og/user/${decodedUsername}`, "/previews/preview.webp"],
     },
   };
 }

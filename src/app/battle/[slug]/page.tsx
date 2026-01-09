@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BattleComparison } from "@/components/challenge/BattleComparison";
+import { BattleWrapped } from "@/components/challenge/wrapped";
 import { determineWinner, getTrashTalkMessage, isValidTrashTalkId } from "@/lib/challenges";
 import { parseBattleSlug, getUserBattleStatsByUsername } from "@/lib/battle";
 import type { Metadata } from "next";
@@ -53,14 +53,14 @@ export async function generateMetadata({
     openGraph: {
       title: `${challengerName} vs ${challengedName} - Vibe Coding Battle`,
       description,
-      images: [ogUrl],
+      images: [ogUrl, "/previews/preview-invite.webp"],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: `${challengerName} vs ${challengedName} - Vibe Coding Battle`,
       description,
-      images: [ogUrl],
+      images: [ogUrl, "/previews/preview-invite.webp"],
     },
   };
 }
@@ -102,7 +102,7 @@ export default async function BattlePage({ params, searchParams }: PageProps) {
           &quot;{trashTalkMessage.text}&quot;
         </div>
       )}
-      <BattleComparison
+      <BattleWrapped
         challenger={challengerStats}
         challenged={challengedStats}
         result={result}

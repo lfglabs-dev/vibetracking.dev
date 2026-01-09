@@ -5,8 +5,10 @@ import { updateSession } from "@/lib/supabase/middleware";
 const RESERVED_PATHS = [
   "api",
   "auth",
+  "battle",
   "import",
   "og",
+  "test",
   "user",
   "_next",
 ];
