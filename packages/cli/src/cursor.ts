@@ -120,6 +120,28 @@ export function isCursorLoggedIn(): boolean {
   return loadCursorCredentials() !== null;
 }
 
+/**
+ * Check if Cursor IDE is installed on this system
+ */
+export function isCursorInstalled(): boolean {
+  const paths: string[] = [];
+
+  if (process.platform === "darwin") {
+    // macOS
+    paths.push("/Applications/Cursor.app");
+    paths.push(path.join(os.homedir(), "Applications", "Cursor.app"));
+  } else if (process.platform === "linux") {
+    // Linux - check desktop file
+    paths.push(path.join(os.homedir(), ".local/share/applications/cursor.desktop"));
+  } else if (process.platform === "win32") {
+    // Windows - common install locations
+    paths.push(path.join(process.env.LOCALAPPDATA || "", "Programs", "cursor", "Cursor.exe"));
+    paths.push(path.join(process.env.PROGRAMFILES || "", "Cursor", "Cursor.exe"));
+  }
+
+  return paths.some((p) => fs.existsSync(p));
+}
+
 // ============================================================================
 // API Client
 // ============================================================================

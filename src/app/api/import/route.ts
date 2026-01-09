@@ -3,6 +3,17 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { nanoid } from "nanoid";
 
+// Chunk array into smaller batches for bulk operations
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
+const CHUNK_SIZE = 500; // Rows per batch
+
 // New format from CLI (TokenContributionData)
 interface TokenBreakdown {
   input: number;
@@ -181,32 +192,61 @@ export async function POST(request: Request) {
     }
 
     // Process contributions (new format: TokenContributionData)
+    // Batch all records first, then insert/upsert in bulk for performance
     const modelTokens: Record<string, number> = {};
     const toolTokens: Record<string, number> = {};
 
-    for (const contribution of data.contributions) {
-      // Aggregate sources by tool for daily_activity (multiple sources may have same tool)
-      const toolTotals = new Map<string, {
-        messageCount: number;
-        tokens: number;
-        cost: number;
-      }>();
+    // Aggregate daily activity by tool (keyed by date+tool)
+    const dailyActivityMap = new Map<string, {
+      user_id: string;
+      date: string;
+      tool: string;
+      message_count: number;
+      session_count: number;
+      total_tokens: number;
+      cost: number;
+    }>();
 
+    const tokenUsageRecords: Array<{
+      user_id: string;
+      date: string;
+      tool: string;
+      model: string;
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_tokens: number;
+      cache_creation_tokens: number;
+      reasoning_tokens: number;
+      cost: number;
+    }> = [];
+
+    for (const contribution of data.contributions) {
       for (const sourceData of contribution.sources) {
         const tool = normalizeToolName(sourceData.source);
         const totalTokens = sourceData.tokens.input + sourceData.tokens.output +
           sourceData.tokens.cacheRead + sourceData.tokens.cacheWrite + sourceData.tokens.reasoning;
 
-        // Aggregate for daily_activity
-        const existing = toolTotals.get(tool) || { messageCount: 0, tokens: 0, cost: 0 };
-        toolTotals.set(tool, {
-          messageCount: existing.messageCount + sourceData.messages,
-          tokens: existing.tokens + totalTokens,
-          cost: existing.cost + sourceData.cost,
-        });
+        // Aggregate for daily_activity by date+tool
+        const activityKey = `${contribution.date}:${tool}`;
+        const existing = dailyActivityMap.get(activityKey);
+        if (existing) {
+          existing.message_count += sourceData.messages;
+          existing.total_tokens += totalTokens;
+          existing.cost += sourceData.cost;
+        } else {
+          dailyActivityMap.set(activityKey, {
+            user_id: userId,
+            date: contribution.date,
+            tool,
+            message_count: sourceData.messages,
+            session_count: 1,
+            total_tokens: totalTokens,
+            cost: sourceData.cost,
+          });
+        }
 
-        // Insert token usage by model (use insert, not upsert - no unique constraint exists)
-        const { error: usageError } = await serviceSupabase.from("token_usage").insert({
+        // Batch token usage records (insert, not upsert - no unique constraint)
+        tokenUsageRecords.push({
           user_id: userId,
           date: contribution.date,
           tool,
@@ -219,37 +259,37 @@ export async function POST(request: Request) {
           cost: sourceData.cost,
         });
 
-        if (usageError) {
-          console.error("Error inserting token usage:", usageError);
-        }
-
         // Track for favorites calculation
         modelTokens[sourceData.modelId] = (modelTokens[sourceData.modelId] || 0) + totalTokens;
         toolTokens[tool] = (toolTokens[tool] || 0) + totalTokens;
       }
-
-      // Upsert daily activity for each tool (aggregated)
-      for (const [tool, totals] of toolTotals) {
-        const { error: activityError } = await serviceSupabase.from("daily_activity").upsert(
-          {
-            user_id: userId,
-            date: contribution.date,
-            tool,
-            message_count: totals.messageCount,
-            session_count: 1,
-            total_tokens: totals.tokens,
-            cost: totals.cost,
-          },
-          {
-            onConflict: "user_id,date,tool",
-          }
-        );
-
-        if (activityError) {
-          console.error("Error upserting daily activity:", activityError);
-        }
-      }
     }
+
+    // Chunk and write daily_activity and token_usage in parallel
+    const dailyActivityRecords = Array.from(dailyActivityMap.values());
+    const dailyChunks = chunkArray(dailyActivityRecords, CHUNK_SIZE);
+    const tokenChunks = chunkArray(tokenUsageRecords, CHUNK_SIZE);
+
+    await Promise.all([
+      // Daily activity chunks (sequential within, parallel with token_usage)
+      (async () => {
+        for (const chunk of dailyChunks) {
+          const { error } = await serviceSupabase
+            .from("daily_activity")
+            .upsert(chunk, { onConflict: "user_id,date,tool" });
+          if (error) console.error("daily_activity error:", error);
+        }
+      })(),
+      // Token usage chunks (insert, not upsert)
+      (async () => {
+        for (const chunk of tokenChunks) {
+          const { error } = await serviceSupabase
+            .from("token_usage")
+            .insert(chunk);
+          if (error) console.error("token_usage error:", error);
+        }
+      })(),
+    ]);
 
     // Use summary from data
     const totalTokens = data.summary.totalTokens;
