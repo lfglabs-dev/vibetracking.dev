@@ -5,15 +5,15 @@
  * Browser-first experience - data is viewed and shared on vibetracking.dev
  */
 
-import { Command, Option } from "commander";
+import { Command } from "commander";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
 import pc from "picocolors";
 import open from "open";
 import pako from "pako";
-import { generateWrapped } from "./wrapped.js";
-import { getApiBaseUrl, loadCredentials, saveCredentials } from "./credentials.js";
+import { getApiBaseUrl, loadCredentials } from "./credentials.js";
+import { login, logout, whoami } from "./auth.js";
 
 import {
   loadCursorCredentials,
@@ -25,46 +25,23 @@ import {
   syncCursorCache,
 } from "./cursor.js";
 import {
-  createUsageTable,
-  formatUsageRow,
-  formatTotalsRow,
-  formatNumber,
-  formatCurrency,
-  formatModelName,
-} from "./table.js";
-import {
-  isNativeAvailable,
-  getNativeVersion,
   parseLocalSourcesAsync,
-  finalizeReportAsync,
-  finalizeMonthlyReportAsync,
   finalizeGraphAsync,
-  type ModelReport,
-  type MonthlyReport,
   type ParsedMessages,
 } from "./native.js";
 import { createSpinner } from "./spinner.js";
-import * as fs from "node:fs";
-import { performance } from "node:perf_hooks";
 import type { SourceType } from "./graph-types.js";
 
-interface FilterOptions {
-  opencode?: boolean;
-  claude?: boolean;
-  codex?: boolean;
-  gemini?: boolean;
-  cursor?: boolean;
-  amp?: boolean;
-  droid?: boolean;
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function formatNumber(num: number): string {
+  return num.toLocaleString("en-US");
 }
 
-interface DateFilterOptions {
-  since?: string;
-  until?: string;
-  year?: string;
-  today?: boolean;
-  week?: boolean;
-  month?: boolean;
+function formatCurrency(amount: number): string {
+  return `$${amount.toFixed(2)}`;
 }
 
 interface CursorSyncResult {
@@ -72,57 +49,6 @@ interface CursorSyncResult {
   synced: boolean;
   rows: number;
   error?: string;
-}
-
-// =============================================================================
-// Date Helpers
-// =============================================================================
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
-
-function getDateFilters(options: DateFilterOptions): { since?: string; until?: string; year?: string } {
-  const today = new Date();
-
-  if (options.today) {
-    const todayStr = formatDate(today);
-    return { since: todayStr, until: todayStr };
-  }
-
-  if (options.week) {
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 6);
-    return { since: formatDate(weekAgo), until: formatDate(today) };
-  }
-
-  if (options.month) {
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { since: formatDate(startOfMonth), until: formatDate(today) };
-  }
-
-  return {
-    since: options.since,
-    until: options.until,
-    year: options.year,
-  };
-}
-
-function getDateRangeLabel(options: DateFilterOptions): string | null {
-  if (options.today) return "Today";
-  if (options.week) return "Last 7 days";
-  if (options.month) {
-    const today = new Date();
-    return today.toLocaleString("en-US", { month: "long", year: "numeric" } as Intl.DateTimeFormatOptions);
-  }
-  if (options.year) return options.year;
-  if (options.since || options.until) {
-    const parts: string[] = [];
-    if (options.since) parts.push(`from ${options.since}`);
-    if (options.until) parts.push(`to ${options.until}`);
-    return parts.join(" ");
-  }
-  return null;
 }
 
 // =============================================================================
@@ -149,146 +75,33 @@ async function main() {
     .description("Vibetracking - Track AI coding costs across Claude Code, Codex, Cursor, and more")
     .version(pkg.version);
 
-  // Default command: scan data and open browser
+  // Default command: sync if authenticated, else open browser
   program
     .command("default", { isDefault: true, hidden: true })
-    .option("--json", "Output as JSON instead of opening browser")
-    .option("--opencode", "Include only OpenCode data")
-    .option("--claude", "Include only Claude Code data")
-    .option("--codex", "Include only Codex CLI data")
-    .option("--gemini", "Include only Gemini CLI data")
-    .option("--cursor", "Include only Cursor IDE data")
-    .option("--amp", "Include only Amp usage")
-    .option("--droid", "Include only Factory Droid usage")
-    .option("--no-spinner", "Disable spinner")
-    .action(async (options) => {
-      if (options.json) {
-        await outputJsonReport("models", options);
+    .action(async () => {
+      const credentials = loadCredentials();
+      if (credentials) {
+        await syncAndPrintProfile(credentials);
       } else {
-        await openBrowserWithData(options);
+        await openBrowserWithData();
       }
     });
 
-  program
-    .command("models")
-    .description("Show usage breakdown by model")
-    .option("--json", "Output as JSON")
-    .option("--opencode", "Show only OpenCode usage")
-    .option("--claude", "Show only Claude Code usage")
-    .option("--codex", "Show only Codex CLI usage")
-    .option("--gemini", "Show only Gemini CLI usage")
-    .option("--cursor", "Show only Cursor IDE usage")
-    .option("--amp", "Show only Amp usage")
-    .option("--droid", "Show only Factory Droid usage")
-    .option("--today", "Show only today's usage")
-    .option("--week", "Show last 7 days")
-    .option("--month", "Show current month")
-    .option("--since <date>", "Start date (YYYY-MM-DD)")
-    .option("--until <date>", "End date (YYYY-MM-DD)")
-    .option("--year <year>", "Filter to specific year")
-    .option("--benchmark", "Show processing time")
-    .option("--no-spinner", "Disable spinner")
-    .action(async (options) => {
-      if (options.json) {
-        await outputJsonReport("models", options);
-      } else {
-        await showModelReport(options, { spinner: options.spinner });
-      }
-    });
+  // Authentication commands
+  program.command("login").description("Login to vibetracking.dev").action(login);
+  program.command("logout").description("Logout from vibetracking.dev").action(logout);
+  program.command("whoami").description("Show current user").action(whoami);
 
-  program
-    .command("monthly")
-    .description("Show monthly usage report")
-    .option("--json", "Output as JSON")
-    .option("--opencode", "Show only OpenCode usage")
-    .option("--claude", "Show only Claude Code usage")
-    .option("--codex", "Show only Codex CLI usage")
-    .option("--gemini", "Show only Gemini CLI usage")
-    .option("--cursor", "Show only Cursor IDE usage")
-    .option("--amp", "Show only Amp usage")
-    .option("--droid", "Show only Factory Droid usage")
-    .option("--today", "Show only today's usage")
-    .option("--week", "Show last 7 days")
-    .option("--month", "Show current month")
-    .option("--since <date>", "Start date (YYYY-MM-DD)")
-    .option("--until <date>", "End date (YYYY-MM-DD)")
-    .option("--year <year>", "Filter to specific year")
-    .option("--benchmark", "Show processing time")
-    .option("--no-spinner", "Disable spinner")
-    .action(async (options) => {
-      if (options.json) {
-        await outputJsonReport("monthly", options);
-      } else {
-        await showMonthlyReport(options, { spinner: options.spinner });
-      }
-    });
-
-  program
-    .command("graph")
-    .description("Export contribution graph data as JSON")
-    .option("--output <file>", "Write to file instead of stdout")
-    .option("--opencode", "Include only OpenCode data")
-    .option("--claude", "Include only Claude Code data")
-    .option("--codex", "Include only Codex CLI data")
-    .option("--gemini", "Include only Gemini CLI data")
-    .option("--cursor", "Include only Cursor IDE data")
-    .option("--amp", "Include only Amp data")
-    .option("--droid", "Include only Factory Droid data")
-    .option("--since <date>", "Start date (YYYY-MM-DD)")
-    .option("--until <date>", "End date (YYYY-MM-DD)")
-    .option("--year <year>", "Filter to specific year")
-    .option("--benchmark", "Show processing time")
-    .option("--no-spinner", "Disable spinner")
-    .action(async (options) => {
-      await handleGraphCommand(options);
-    });
-
-  program
-    .command("wrapped")
-    .description("Generate Wrapped shareable image")
-    .option("--output <file>", "Output file path (default: vibetracking-<year>-wrapped.png)")
-    .option("--year <year>", "Year to generate (default: current year)")
-    .option("--opencode", "Include only OpenCode data")
-    .option("--claude", "Include only Claude Code data")
-    .option("--codex", "Include only Codex CLI data")
-    .option("--gemini", "Include only Gemini CLI data")
-    .option("--cursor", "Include only Cursor IDE data")
-    .option("--amp", "Include only Amp data")
-    .option("--droid", "Include only Factory Droid data")
-    .option("--no-spinner", "Disable loading spinner")
-    .option("--short", "Display total tokens in abbreviated format")
-    .addOption(new Option("--agents", "Show Top OpenCode Agents (default)").conflicts("clients"))
-    .addOption(new Option("--clients", "Show Top Clients instead of Top OpenCode Agents").conflicts("agents"))
-    .option("--disable-pinned", "Disable pinning of Sisyphus agents in rankings")
-    .action(async (options) => {
-      await handleWrappedCommand(options);
-    });
-
+  // Sync command for cron jobs
   program
     .command("sync")
-    .description("Sync your usage data to vibetracking.dev (requires prior authentication)")
-    .option("--quiet", "Minimal output for background syncing")
-    .option("--opencode", "Include only OpenCode data")
-    .option("--claude", "Include only Claude Code data")
-    .option("--codex", "Include only Codex CLI data")
-    .option("--gemini", "Include only Gemini CLI data")
-    .option("--cursor", "Include only Cursor IDE data")
-    .option("--amp", "Include only Amp data")
-    .option("--droid", "Include only Factory Droid data")
+    .description("Sync usage data to vibetracking.dev (for cron jobs)")
+    .option("--quiet", "No output on success")
     .action(async (options) => {
       await handleSyncCommand(options);
     });
 
-  program
-    .command("pricing <model-id>")
-    .description("Look up pricing for a model")
-    .option("--json", "Output as JSON")
-    .option("--provider <source>", "Force pricing source: 'litellm' or 'openrouter'")
-    .option("--no-spinner", "Disable spinner")
-    .action(async (modelId: string, options: { json?: boolean; provider?: string; spinner?: boolean }) => {
-      await handlePricingCommand(modelId, options);
-    });
-
+  // Cursor IDE integration
   const cursorCommand = program
     .command("cursor")
     .description("Cursor IDE integration commands");
@@ -318,24 +131,59 @@ async function main() {
 }
 
 // =============================================================================
-// Browser-First Default Command
+// Default Command: Sync if authenticated, else open browser
 // =============================================================================
 
-async function openBrowserWithData(options: FilterOptions & { spinner?: boolean }) {
-  const useSpinner = options.spinner !== false;
-  const spinner = useSpinner ? createSpinner({ color: "cyan" }) : null;
+async function syncAndPrintProfile(credentials: { token: string; username: string }) {
+  const spinner = createSpinner({ color: "cyan" });
+  spinner.start(pc.gray("Syncing usage data..."));
 
-  spinner?.start(pc.gray("Scanning AI coding tool data..."));
+  const allSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'];
+  const localSources = allSources.filter(s => s !== 'cursor');
 
-  const enabledSources = getEnabledSources(options);
-  const localSources: SourceType[] = (enabledSources || ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'])
-    .filter(s => s !== 'cursor');
-  const includeCursor = !enabledSources || enabledSources.includes('cursor');
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources, {});
+  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources);
 
   if (!localMessages) {
-    spinner?.error("No AI coding tool data found on this machine.");
+    spinner.error("No data found to sync.");
+    process.exit(1);
+  }
+
+  const graphData = await finalizeGraphAsync({
+    localMessages,
+    includeCursor: cursorSync.synced,
+  });
+
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/api/sync`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${credentials.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ data: graphData }),
+  });
+
+  if (!response.ok) {
+    spinner.error(`Sync failed: ${response.statusText}`);
+    process.exit(1);
+  }
+
+  spinner.stop();
+  console.log(pc.green("\n  Synced successfully!"));
+  console.log(pc.cyan(`  ${baseUrl}/@${credentials.username}\n`));
+}
+
+async function openBrowserWithData() {
+  const spinner = createSpinner({ color: "cyan" });
+  spinner.start(pc.gray("Scanning AI coding tool data..."));
+
+  const allSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'];
+  const localSources = allSources.filter(s => s !== 'cursor');
+
+  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources);
+
+  if (!localMessages) {
+    spinner.error("No AI coding tool data found on this machine.");
     console.log(pc.gray("\n  Supported tools:"));
     console.log(pc.gray("  - Claude Code (~/.claude/projects/)"));
     console.log(pc.gray("  - Codex (~/.codex/)"));
@@ -344,15 +192,14 @@ async function openBrowserWithData(options: FilterOptions & { spinner?: boolean 
     process.exit(1);
   }
 
-  spinner?.update(pc.gray("Building data export..."));
+  spinner.update(pc.gray("Building data export..."));
 
-  // Get graph data for encoding
   const graphData = await finalizeGraphAsync({
     localMessages,
-    includeCursor: includeCursor && cursorSync.synced,
+    includeCursor: cursorSync.synced,
   });
 
-  spinner?.stop();
+  spinner.stop();
 
   // Show summary
   const totalTokens = graphData.summary.totalTokens;
@@ -377,10 +224,10 @@ async function openBrowserWithData(options: FilterOptions & { spinner?: boolean 
 }
 
 // =============================================================================
-// Sync Command (for background syncing with saved token)
+// Sync Command (for cron jobs)
 // =============================================================================
 
-async function handleSyncCommand(options: FilterOptions & { quiet?: boolean }) {
+async function handleSyncCommand(options: { quiet?: boolean }) {
   const credentials = loadCredentials();
 
   if (!credentials) {
@@ -391,12 +238,10 @@ async function handleSyncCommand(options: FilterOptions & { quiet?: boolean }) {
     process.exit(1);
   }
 
-  const enabledSources = getEnabledSources(options);
-  const localSources: SourceType[] = (enabledSources || ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'])
-    .filter(s => s !== 'cursor');
-  const includeCursor = !enabledSources || enabledSources.includes('cursor');
+  const allSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'];
+  const localSources = allSources.filter(s => s !== 'cursor');
 
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources, {});
+  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources);
 
   if (!localMessages) {
     if (!options.quiet) {
@@ -407,10 +252,9 @@ async function handleSyncCommand(options: FilterOptions & { quiet?: boolean }) {
 
   const graphData = await finalizeGraphAsync({
     localMessages,
-    includeCursor: includeCursor && cursorSync.synced,
+    includeCursor: cursorSync.synced,
   });
 
-  // Send to API
   const baseUrl = getApiBaseUrl();
   const response = await fetch(`${baseUrl}/api/sync`, {
     method: "POST",
@@ -429,28 +273,14 @@ async function handleSyncCommand(options: FilterOptions & { quiet?: boolean }) {
   }
 
   if (!options.quiet) {
-    console.log(pc.green("\n  Sync complete!\n"));
+    console.log(pc.green("\n  Synced successfully!"));
+    console.log(pc.cyan(`  ${baseUrl}/@${credentials.username}\n`));
   }
 }
 
 // =============================================================================
-// Source Management
+// Data Loading
 // =============================================================================
-
-function getEnabledSources(options: FilterOptions): SourceType[] | undefined {
-  const hasFilter = options.opencode || options.claude || options.codex || options.gemini || options.cursor || options.amp || options.droid;
-  if (!hasFilter) return undefined;
-
-  const sources: SourceType[] = [];
-  if (options.opencode) sources.push("opencode");
-  if (options.claude) sources.push("claude");
-  if (options.codex) sources.push("codex");
-  if (options.gemini) sources.push("gemini");
-  if (options.cursor) sources.push("cursor");
-  if (options.amp) sources.push("amp");
-  if (options.droid) sources.push("droid");
-  return sources;
-}
 
 async function syncCursorData(): Promise<CursorSyncResult> {
   const credentials = loadCursorCredentials();
@@ -473,8 +303,7 @@ interface LoadedDataSources {
 }
 
 async function loadDataSourcesParallel(
-  localSources: SourceType[],
-  dateFilters: { since?: string; until?: string; year?: string }
+  localSources: SourceType[]
 ): Promise<LoadedDataSources> {
   const shouldParseLocal = localSources.length > 0;
 
@@ -483,9 +312,6 @@ async function loadDataSourcesParallel(
     shouldParseLocal
       ? parseLocalSourcesAsync({
           sources: localSources.filter(s => s !== 'cursor'),
-          since: dateFilters.since,
-          until: dateFilters.until,
-          year: dateFilters.year,
         })
       : Promise.resolve(null),
   ]);
@@ -499,497 +325,6 @@ async function loadDataSourcesParallel(
     : null;
 
   return { cursorSync, localMessages };
-}
-
-// =============================================================================
-// Report Commands
-// =============================================================================
-
-async function showModelReport(options: FilterOptions & DateFilterOptions & { benchmark?: boolean }, extraOptions?: { spinner?: boolean }) {
-  const dateFilters = getDateFilters(options);
-  const enabledSources = getEnabledSources(options);
-  const onlyCursor = enabledSources?.length === 1 && enabledSources[0] === 'cursor';
-  const includeCursor = !enabledSources || enabledSources.includes('cursor');
-
-  if (onlyCursor) {
-    const credentials = loadCursorCredentials();
-    if (!credentials) {
-      console.log(pc.red("\n  Error: Cursor authentication required."));
-      console.log(pc.gray("  Run 'vibetracking cursor login' to authenticate with Cursor.\n"));
-      process.exit(1);
-    }
-  }
-
-  const dateRange = getDateRangeLabel(options);
-  const title = dateRange
-    ? `Token Usage Report by Model (${dateRange})`
-    : "Token Usage Report by Model";
-
-  console.log(pc.cyan(`\n  ${title}`));
-  if (options.benchmark) {
-    console.log(pc.gray(`  Using: Rust native module v${getNativeVersion()}`));
-  }
-  console.log();
-
-  const useSpinner = extraOptions?.spinner !== false;
-  const spinner = useSpinner ? createSpinner({ color: "cyan" }) : null;
-
-  const localSources: SourceType[] = (enabledSources || ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'])
-    .filter(s => s !== 'cursor');
-
-  spinner?.start(pc.gray("Scanning session data..."));
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(
-    onlyCursor ? [] : localSources,
-    dateFilters
-  );
-
-  if (!localMessages && !onlyCursor) {
-    spinner?.error('Failed to parse local session files');
-    process.exit(1);
-  }
-
-  spinner?.update(pc.gray("Finalizing report..."));
-  const startTime = performance.now();
-
-  let report: ModelReport;
-  try {
-    const emptyMessages: ParsedMessages = { messages: [], opencodeCount: 0, claudeCount: 0, codexCount: 0, geminiCount: 0, ampCount: 0, droidCount: 0, processingTimeMs: 0 };
-    report = await finalizeReportAsync({
-      localMessages: localMessages || emptyMessages,
-      includeCursor: includeCursor && cursorSync.synced,
-      since: dateFilters.since,
-      until: dateFilters.until,
-      year: dateFilters.year,
-    });
-  } catch (e) {
-    spinner?.error(`Error: ${(e as Error).message}`);
-    process.exit(1);
-  }
-
-  const processingTime = performance.now() - startTime;
-  spinner?.stop();
-
-  if (report.entries.length === 0) {
-    if (onlyCursor && !cursorSync.synced) {
-      console.log(pc.yellow("  No Cursor data available."));
-      console.log(pc.gray("  Run 'vibetracking cursor login' to authenticate with Cursor.\n"));
-    } else {
-      console.log(pc.yellow("  No usage data found.\n"));
-    }
-    return;
-  }
-
-  const table = createUsageTable("Source/Model");
-  const filteredEntries = report.entries.filter(e => e.input + e.output + e.cacheRead + e.cacheWrite > 0);
-
-  for (const entry of filteredEntries) {
-    const sourceLabel = getSourceLabel(entry.source);
-    const modelDisplay = `${pc.dim(sourceLabel)} ${formatModelName(entry.model)}`;
-    table.push(
-      formatUsageRow(
-        modelDisplay,
-        [entry.model],
-        entry.input,
-        entry.output,
-        entry.cacheWrite,
-        entry.cacheRead,
-        entry.cost
-      )
-    );
-  }
-
-  table.push(
-    formatTotalsRow(
-      report.totalInput,
-      report.totalOutput,
-      report.totalCacheWrite,
-      report.totalCacheRead,
-      report.totalCost
-    )
-  );
-
-  console.log(table.toString());
-
-  console.log(
-    pc.gray(
-      `\n  Total: ${formatNumber(report.totalMessages)} messages, ` +
-        `${formatNumber(report.totalInput + report.totalOutput + report.totalCacheRead + report.totalCacheWrite)} tokens, ` +
-        `${pc.green(formatCurrency(report.totalCost))}`
-    )
-  );
-
-  if (options.benchmark) {
-    console.log(pc.gray(`  Processing time: ${processingTime.toFixed(0)}ms (Rust) + ${report.processingTimeMs}ms (parsing)`));
-  }
-
-  console.log();
-}
-
-async function showMonthlyReport(options: FilterOptions & DateFilterOptions & { benchmark?: boolean }, extraOptions?: { spinner?: boolean }) {
-  const dateRange = getDateRangeLabel(options);
-  const title = dateRange
-    ? `Monthly Token Usage Report (${dateRange})`
-    : "Monthly Token Usage Report";
-
-  console.log(pc.cyan(`\n  ${title}`));
-  if (options.benchmark) {
-    console.log(pc.gray(`  Using: Rust native module v${getNativeVersion()}`));
-  }
-  console.log();
-
-  const useSpinner = extraOptions?.spinner !== false;
-  const spinner = useSpinner ? createSpinner({ color: "cyan" }) : null;
-
-  const dateFilters = getDateFilters(options);
-  const enabledSources = getEnabledSources(options);
-  const localSources: SourceType[] = (enabledSources || ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'])
-    .filter(s => s !== 'cursor');
-  const includeCursor = !enabledSources || enabledSources.includes('cursor');
-
-  spinner?.start(pc.gray("Scanning session data..."));
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources, dateFilters);
-
-  if (!localMessages) {
-    spinner?.error('Failed to parse local session files');
-    process.exit(1);
-  }
-
-  spinner?.update(pc.gray("Finalizing report..."));
-  const startTime = performance.now();
-
-  let report: MonthlyReport;
-  try {
-    report = await finalizeMonthlyReportAsync({
-      localMessages,
-      includeCursor: includeCursor && cursorSync.synced,
-      since: dateFilters.since,
-      until: dateFilters.until,
-      year: dateFilters.year,
-    });
-  } catch (e) {
-    spinner?.error(`Error: ${(e as Error).message}`);
-    process.exit(1);
-  }
-
-  const processingTime = performance.now() - startTime;
-  spinner?.stop();
-
-  if (report.entries.length === 0) {
-    console.log(pc.yellow("  No usage data found.\n"));
-    return;
-  }
-
-  const table = createUsageTable("Month");
-  const filteredEntries = report.entries.filter(e => e.input + e.output + e.cacheRead + e.cacheWrite > 0);
-
-  for (const entry of filteredEntries) {
-    table.push(
-      formatUsageRow(
-        entry.month,
-        entry.models,
-        entry.input,
-        entry.output,
-        entry.cacheWrite,
-        entry.cacheRead,
-        entry.cost
-      )
-    );
-  }
-
-  const totalInput = report.entries.reduce((sum, e) => sum + e.input, 0);
-  const totalOutput = report.entries.reduce((sum, e) => sum + e.output, 0);
-  const totalCacheRead = report.entries.reduce((sum, e) => sum + e.cacheRead, 0);
-  const totalCacheWrite = report.entries.reduce((sum, e) => sum + e.cacheWrite, 0);
-
-  table.push(
-    formatTotalsRow(totalInput, totalOutput, totalCacheWrite, totalCacheRead, report.totalCost)
-  );
-
-  console.log(table.toString());
-  console.log(pc.gray(`\n  Total Cost: ${pc.green(formatCurrency(report.totalCost))}`));
-
-  if (options.benchmark) {
-    console.log(pc.gray(`  Processing time: ${processingTime.toFixed(0)}ms (Rust) + ${report.processingTimeMs}ms (parsing)`));
-  }
-
-  console.log();
-}
-
-type JsonReportType = "models" | "monthly";
-
-async function outputJsonReport(
-  reportType: JsonReportType,
-  options: FilterOptions & DateFilterOptions
-) {
-  const dateFilters = getDateFilters(options);
-  const enabledSources = getEnabledSources(options);
-  const onlyCursor = enabledSources?.length === 1 && enabledSources[0] === 'cursor';
-  const includeCursor = !enabledSources || enabledSources.includes('cursor');
-  const localSources: SourceType[] = (enabledSources || ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'])
-    .filter(s => s !== 'cursor');
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(
-    onlyCursor ? [] : localSources,
-    dateFilters
-  );
-
-  if (!localMessages && !onlyCursor) {
-    console.error(JSON.stringify({ error: "Failed to parse local session files" }));
-    process.exit(1);
-  }
-
-  const emptyMessages: ParsedMessages = { messages: [], opencodeCount: 0, claudeCount: 0, codexCount: 0, geminiCount: 0, ampCount: 0, droidCount: 0, processingTimeMs: 0 };
-
-  if (reportType === "models") {
-    const report = await finalizeReportAsync({
-      localMessages: localMessages || emptyMessages,
-      includeCursor: includeCursor && cursorSync.synced,
-      since: dateFilters.since,
-      until: dateFilters.until,
-      year: dateFilters.year,
-    });
-    console.log(JSON.stringify(report, null, 2));
-  } else {
-    const report = await finalizeMonthlyReportAsync({
-      localMessages: localMessages || emptyMessages,
-      includeCursor: includeCursor && cursorSync.synced,
-      since: dateFilters.since,
-      until: dateFilters.until,
-      year: dateFilters.year,
-    });
-    console.log(JSON.stringify(report, null, 2));
-  }
-}
-
-// =============================================================================
-// Graph Command
-// =============================================================================
-
-interface GraphCommandOptions extends FilterOptions, DateFilterOptions {
-  output?: string;
-  benchmark?: boolean;
-  spinner?: boolean;
-}
-
-async function handleGraphCommand(options: GraphCommandOptions) {
-  const useSpinner = options.output && options.spinner !== false;
-  const spinner = useSpinner ? createSpinner({ color: "cyan" }) : null;
-
-  const dateFilters = getDateFilters(options);
-  const enabledSources = getEnabledSources(options);
-  const localSources: SourceType[] = (enabledSources || ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'])
-    .filter(s => s !== 'cursor');
-  const includeCursor = !enabledSources || enabledSources.includes('cursor');
-
-  spinner?.start(pc.gray("Scanning session data..."));
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources, dateFilters);
-
-  if (!localMessages) {
-    spinner?.error('Failed to parse local session files');
-    process.exit(1);
-  }
-
-  spinner?.update(pc.gray("Generating graph data..."));
-  const startTime = performance.now();
-
-  const data = await finalizeGraphAsync({
-    localMessages,
-    includeCursor: includeCursor && cursorSync.synced,
-    since: dateFilters.since,
-    until: dateFilters.until,
-    year: dateFilters.year,
-  });
-
-  const processingTime = performance.now() - startTime;
-  spinner?.stop();
-
-  const jsonOutput = JSON.stringify(data, null, 2);
-
-  if (options.output) {
-    fs.writeFileSync(options.output, jsonOutput, "utf-8");
-    console.error(pc.green(`Graph data written to ${options.output}`));
-    console.error(
-      pc.gray(
-        `  ${data.contributions.length} days, ${data.summary.sources.length} sources, ${data.summary.models.length} models`
-      )
-    );
-    console.error(pc.gray(`  Total: ${formatCurrency(data.summary.totalCost)}`));
-    if (options.benchmark) {
-      console.error(pc.gray(`  Processing time: ${processingTime.toFixed(0)}ms`));
-    }
-  } else {
-    console.log(jsonOutput);
-  }
-}
-
-// =============================================================================
-// Wrapped Command
-// =============================================================================
-
-interface WrappedCommandOptions extends FilterOptions {
-  output?: string;
-  year?: string;
-  spinner?: boolean;
-  short?: boolean;
-  agents?: boolean;
-  clients?: boolean;
-  disablePinned?: boolean;
-}
-
-async function handleWrappedCommand(options: WrappedCommandOptions) {
-  const useSpinner = options.spinner !== false;
-  const spinner = useSpinner ? createSpinner({ color: "cyan" }) : null;
-  const currentYear = new Date().getFullYear().toString();
-  const year = options.year || currentYear;
-  spinner?.start(pc.gray(`Generating your ${year} Wrapped...`));
-
-  try {
-    const enabledSources = getEnabledSources(options);
-    const outputPath = await generateWrapped({
-      output: options.output,
-      year,
-      sources: enabledSources,
-      short: options.short,
-      includeAgents: !options.clients,
-      pinSisyphus: !options.disablePinned,
-    });
-
-    spinner?.stop();
-    console.log(pc.green(`\n  Your Vibetracking Wrapped image is ready!`));
-    console.log(pc.white(`  ${outputPath}`));
-    console.log();
-    console.log(pc.gray("  Share it on Twitter/X with #vibetracking"));
-    console.log();
-  } catch (error) {
-    spinner?.error(`Failed to generate wrapped: ${(error as Error).message}`);
-    process.exit(1);
-  }
-}
-
-// =============================================================================
-// Pricing Command
-// =============================================================================
-
-async function handlePricingCommand(modelId: string, options: { json?: boolean; provider?: string; spinner?: boolean }) {
-  const validProviders = ["litellm", "openrouter"];
-  if (options.provider && !validProviders.includes(options.provider.toLowerCase())) {
-    console.log(pc.red(`\n  Invalid provider: ${options.provider}`));
-    console.log(pc.gray(`  Valid providers: ${validProviders.join(", ")}\n`));
-    process.exit(1);
-  }
-
-  const useSpinner = options.spinner !== false;
-  const spinner = useSpinner ? createSpinner({ color: "cyan" }) : null;
-  const providerLabel = options.provider ? ` from ${options.provider}` : "";
-  spinner?.start(pc.gray(`Fetching pricing data${providerLabel}...`));
-
-  let core: typeof import("@vibetracking/core");
-  try {
-    const mod = await import("@vibetracking/core");
-    core = (mod.default ?? mod) as typeof import("@vibetracking/core");
-  } catch (importErr) {
-    spinner?.stop();
-    const errorMsg = (importErr as Error).message || "Unknown error";
-    if (options.json) {
-      console.log(JSON.stringify({ error: "Native module not available", details: errorMsg }, null, 2));
-    } else {
-      console.log(pc.red(`\n  Native module not available: ${errorMsg}`));
-      console.log(pc.gray("  Run 'bun run build:core' to build the native module.\n"));
-    }
-    process.exit(1);
-  }
-
-  try {
-    const provider = options.provider?.toLowerCase() || undefined;
-    const nativeResult = await core.lookupPricing(modelId, provider);
-    spinner?.stop();
-
-    const result = {
-      matchedKey: nativeResult.matchedKey,
-      source: nativeResult.source as "litellm" | "openrouter",
-      pricing: {
-        input_cost_per_token: nativeResult.pricing.inputCostPerToken,
-        output_cost_per_token: nativeResult.pricing.outputCostPerToken,
-        cache_read_input_token_cost: nativeResult.pricing.cacheReadInputTokenCost,
-        cache_creation_input_token_cost: nativeResult.pricing.cacheCreationInputTokenCost,
-      },
-    };
-
-    if (options.json) {
-      console.log(JSON.stringify({
-        modelId,
-        matchedKey: result.matchedKey,
-        source: result.source,
-        pricing: {
-          inputCostPerToken: result.pricing.input_cost_per_token ?? 0,
-          outputCostPerToken: result.pricing.output_cost_per_token ?? 0,
-          cacheReadInputTokenCost: result.pricing.cache_read_input_token_cost,
-          cacheCreationInputTokenCost: result.pricing.cache_creation_input_token_cost,
-        },
-      }, null, 2));
-    } else {
-      const sourceLabel = result.source.toLowerCase() === "litellm" ? pc.blue("LiteLLM") : pc.magenta("OpenRouter");
-      const inputCost = result.pricing.input_cost_per_token ?? 0;
-      const outputCost = result.pricing.output_cost_per_token ?? 0;
-      const cacheReadCost = result.pricing.cache_read_input_token_cost;
-      const cacheWriteCost = result.pricing.cache_creation_input_token_cost;
-
-      console.log(pc.cyan(`\n  Pricing for: ${pc.white(modelId)}`));
-      console.log(pc.gray(`  Matched key: ${result.matchedKey}`));
-      console.log(pc.gray(`  Source: `) + sourceLabel);
-      console.log();
-      console.log(pc.white(`  Input:  `) + formatPricePerMillion(inputCost));
-      console.log(pc.white(`  Output: `) + formatPricePerMillion(outputCost));
-      if (cacheReadCost !== undefined) {
-        console.log(pc.white(`  Cache Read:  `) + formatPricePerMillion(cacheReadCost));
-      }
-      if (cacheWriteCost !== undefined) {
-        console.log(pc.white(`  Cache Write: `) + formatPricePerMillion(cacheWriteCost));
-      }
-      console.log();
-    }
-  } catch (err) {
-    spinner?.stop();
-    const errorMsg = (err as Error).message || "Unknown error";
-    const isModelNotFound = errorMsg.toLowerCase().includes("not found") ||
-                            errorMsg.toLowerCase().includes("no pricing");
-
-    if (options.json) {
-      if (isModelNotFound) {
-        console.log(JSON.stringify({ error: "Model not found", modelId }, null, 2));
-      } else {
-        console.log(JSON.stringify({ error: errorMsg, modelId }, null, 2));
-      }
-    } else {
-      if (isModelNotFound) {
-        console.log(pc.red(`\n  Model not found: ${modelId}\n`));
-      } else {
-        console.log(pc.red(`\n  Error looking up pricing: ${errorMsg}\n`));
-      }
-    }
-    process.exit(1);
-  }
-}
-
-function formatPricePerMillion(costPerToken: number): string {
-  const perMillion = costPerToken * 1_000_000;
-  return pc.green(`$${perMillion.toFixed(2)}`) + pc.gray(" / 1M tokens");
-}
-
-function getSourceLabel(source: string): string {
-  switch (source) {
-    case "opencode": return "OpenCode";
-    case "claude": return "Claude";
-    case "codex": return "Codex";
-    case "gemini": return "Gemini";
-    case "cursor": return "Cursor";
-    case "amp": return "Amp";
-    case "droid": return "Droid";
-    default: return source;
-  }
 }
 
 // =============================================================================

@@ -28,17 +28,27 @@ interface UsageByToolChartProps {
 
 type TimeRange = "7D" | "30D" | "1Y";
 
-// Tool colors matching the KPI cards design system
+// Tool colors matching the KPI cards design system - all 7 tools
 const TOOL_COLORS: Record<string, string> = {
-  claude_code: "#D63384", // Pink (matches Total Tokens KPI)
-  codex: "#198754", // Green (matches Favorite Model KPI)
-  cursor: "#0D6EFD", // Blue (matches Sessions KPI)
+  claude_code: "#D63384", // Pink
+  cursor: "#0D6EFD", // Blue
+  codex: "#198754", // Green
+  opencode: "#6F42C1", // Purple
+  claude: "#FD7E14", // Orange
+  gemini: "#20C997", // Teal
+  amp: "#CC9A06", // Yellow
+  droid: "#DC3545", // Red
 };
 
 const TOOL_LABELS: Record<string, string> = {
   claude_code: "Claude Code",
-  codex: "Codex",
   cursor: "Cursor",
+  codex: "Codex",
+  opencode: "OpenCode",
+  claude: "Claude",
+  gemini: "Gemini",
+  amp: "Amp",
+  droid: "Droid",
 };
 
 // Determine granularity based on date range

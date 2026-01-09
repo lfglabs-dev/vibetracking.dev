@@ -6,6 +6,10 @@ import { estimateApiSpendUsd } from "@/lib/pricing";
 import { FunComparison } from "@/components/dashboard/FunComparison";
 import { UsageByToolChart } from "@/components/dashboard/UsageByToolChart";
 import { UsageByModelChart } from "@/components/dashboard/UsageByModelChart";
+import { TokenBreakdownChart } from "@/components/dashboard/TokenBreakdownChart";
+import { CostTrendChart } from "@/components/dashboard/CostTrendChart";
+import { TimeOfDayHeatmap } from "@/components/dashboard/TimeOfDayHeatmap";
+import { ModelMigrationTimeline } from "@/components/dashboard/ModelMigrationTimeline";
 import { UnitToggle, type DisplayUnit } from "@/components/dashboard/UnitToggle";
 import { ChallengeUserButton } from "@/components/challenge/ChallengeUserButton";
 import { ChallengeAFriendButton } from "@/components/challenge/ChallengeAFriendButton";
@@ -39,6 +43,7 @@ interface ProfilePageProps {
     messageCount: number;
     sessionCount: number;
     totalTokens: number;
+    cost: number;
   }[];
   tokenUsage: {
     date: string;
@@ -46,6 +51,10 @@ interface ProfilePageProps {
     model: string;
     inputTokens: number;
     outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+    reasoningTokens: number;
+    cost: number;
   }[];
   isOwnProfile: boolean;
   currentUsername?: string;
@@ -170,7 +179,7 @@ export function ProfilePage({
             className="absolute top-[950px] -left-20 md:-left-36 lg:-left-44 w-24 md:w-32 rotate-[-10deg] hidden lg:block drop-shadow-lg"
             delay={1000}
           />
-          {/* Fun comparison section */}
+          {/* Token Breakdown + Cost Trend section */}
           <AnimatedSticker
             src="/stickers/marck.webp"
             width={140}
@@ -184,6 +193,66 @@ export function ProfilePage({
             height={100}
             className="absolute top-[1200px] -right-20 md:-right-32 lg:-right-40 w-20 md:w-28 rotate-[-8deg] hidden lg:block drop-shadow-lg"
             delay={1200}
+          />
+          {/* Time of Day Heatmap section */}
+          <AnimatedSticker
+            src="/stickers/banana.webp"
+            width={130}
+            height={130}
+            className="absolute top-[1400px] -left-24 md:-left-40 lg:-left-48 w-26 md:w-34 rotate-[-15deg] hidden lg:block drop-shadow-lg"
+            delay={1300}
+          />
+          <AnimatedSticker
+            src="/stickers/cursor.webp"
+            width={120}
+            height={120}
+            className="absolute top-[1450px] -right-24 md:-right-40 lg:-right-48 w-24 md:w-32 rotate-[10deg] hidden lg:block drop-shadow-lg"
+            delay={1400}
+          />
+          {/* Model Migration Timeline section */}
+          <AnimatedSticker
+            src="/stickers/jensen.webp"
+            width={140}
+            height={140}
+            className="absolute top-[1650px] -right-24 md:-right-44 lg:-right-52 w-28 md:w-36 rotate-[-12deg] hidden lg:block drop-shadow-lg"
+            delay={1500}
+          />
+          <AnimatedSticker
+            src="/stickers/vibe.webp"
+            width={130}
+            height={130}
+            className="absolute top-[1700px] -left-24 md:-left-40 lg:-left-48 w-26 md:w-34 rotate-[8deg] hidden lg:block drop-shadow-lg"
+            delay={1600}
+          />
+          {/* Fun comparison section */}
+          <AnimatedSticker
+            src="/stickers/rainbow.webp"
+            width={140}
+            height={140}
+            className="absolute top-[1900px] -left-24 md:-left-40 lg:-left-48 w-28 md:w-36 rotate-[-10deg] hidden lg:block drop-shadow-lg"
+            delay={1700}
+          />
+          <AnimatedSticker
+            src="/stickers/elon.webp"
+            width={130}
+            height={130}
+            className="absolute top-[1950px] -right-24 md:-right-40 lg:-right-48 w-26 md:w-34 rotate-[15deg] hidden lg:block drop-shadow-lg"
+            delay={1800}
+          />
+          {/* Footer section */}
+          <AnimatedSticker
+            src="/stickers/no_em_dashes.webp"
+            width={120}
+            height={120}
+            className="absolute top-[2150px] -right-20 md:-right-36 lg:-right-44 w-24 md:w-32 rotate-[-6deg] hidden lg:block drop-shadow-lg"
+            delay={1900}
+          />
+          <AnimatedSticker
+            src="/stickers/cloud.webp"
+            width={110}
+            height={110}
+            className="absolute top-[2200px] -left-20 md:-left-36 lg:-left-44 w-22 md:w-28 rotate-[12deg] hidden lg:block drop-shadow-lg"
+            delay={2000}
           />
         </div>
 
@@ -255,7 +324,8 @@ export function ProfilePage({
         {/* Stats Grid */}
         {stats ? (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {/* Row 1: 4 KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="card text-center">
                 <div className="text-3xl font-black text-[#D63384]">
                   {displayUnit === "usd"
@@ -286,8 +356,8 @@ export function ProfilePage({
               </div>
             </div>
 
-            {/* Additional Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {/* Row 2: Highlights + Insights (2 cards) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="card">
                 <h3 className="font-bold mb-3">Highlights</h3>
                 <ul className="space-y-2">
@@ -303,25 +373,72 @@ export function ProfilePage({
                       <span className="tag tag-blue">{stats.favoriteTool}</span>
                     </li>
                   )}
+                  {stats.currentStreakDays > 0 && (
+                    <li className="flex items-center justify-between">
+                      <span className="text-[#232323]/60">Current Streak</span>
+                      <span className="tag tag-green">{stats.currentStreakDays} days</span>
+                    </li>
+                  )}
+                  {stats.longestStreakDays > 0 && (
+                    <li className="flex items-center justify-between">
+                      <span className="text-[#232323]/60">Best Streak</span>
+                      <span className="tag tag-yellow">{stats.longestStreakDays} days</span>
+                    </li>
+                  )}
                 </ul>
               </div>
 
-              <div className="card bg-gradient-to-br from-[#FEA6CC]/10 to-[#B3D8F5]/10">
-                <h3 className="font-bold mb-2">Power User Ranking</h3>
-                <div className="text-center py-2">
-                  <div className="text-4xl font-black text-[#D63384] mb-1">
-                    Top {stats.userPercentile}%
+              <div className="card bg-gradient-to-br from-[#FEA6CC]/10 to-[#B3D8F5]/10 flex flex-col">
+                <h3 className="font-bold mb-4">Insights</h3>
+                <div className="space-y-4 flex-1 flex flex-col justify-center">
+                  {/* Power User Ranking */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-[#232323]/60">Power User Ranking</span>
+                      <span className="text-lg font-black text-[#D63384]">Top {stats.userPercentile}%</span>
+                    </div>
+                    <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#D63384] rounded-full transition-all duration-500"
+                        style={{ width: `${100 - stats.userPercentile}%` }}
+                      />
+                    </div>
                   </div>
-                  <p className="text-xs text-[#232323]/60">
-                    by estimated API spend
-                  </p>
+                  {/* Reasoning Tokens */}
+                  {(() => {
+                    const totals = tokenUsage.reduce(
+                      (acc, t) => ({
+                        output: acc.output + t.outputTokens,
+                        reasoning: acc.reasoning + t.reasoningTokens,
+                      }),
+                      { output: 0, reasoning: 0 }
+                    );
+                    const totalGenerated = totals.output + totals.reasoning;
+                    const reasoningPct = totalGenerated > 0 ? (totals.reasoning / totalGenerated) * 100 : 0;
+                    if (totals.reasoning === 0) return null;
+                    const label = reasoningPct >= 50 ? "Heavy" : reasoningPct >= 25 ? "Deep" : "Light";
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-[#232323]/60">🧠 {label} Thinker</span>
+                          <span className="text-lg font-black text-[#6F42C1]">{reasoningPct.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#6F42C1] rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(reasoningPct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
 
-            {/* Usage Charts - Side by Side */}
+            {/* Row 3: Usage by Tool + Usage by Model (2 charts) */}
             {(dailyActivity.length > 0 || tokenUsage.length > 0) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {dailyActivity.length > 0 && (
                   <UsageByToolChart dailyActivity={dailyActivity} unit={displayUnit} />
                 )}
@@ -331,9 +448,31 @@ export function ProfilePage({
               </div>
             )}
 
-            {/* Fun Comparison */}
+            {/* Row 4: Token Breakdown + Cost Trend (2 charts) */}
+            {tokenUsage.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <TokenBreakdownChart tokenUsage={tokenUsage} />
+                <CostTrendChart dailyActivity={dailyActivity} />
+              </div>
+            )}
+
+            {/* Row 5: Time of Day Heatmap (full width) */}
+            {dailyActivity.length > 0 && (
+              <div className="mb-6">
+                <TimeOfDayHeatmap dailyActivity={dailyActivity} />
+              </div>
+            )}
+
+            {/* Row 6: Model Migration Timeline (full width) */}
+            {tokenUsage.length > 0 && (
+              <div className="mb-6">
+                <ModelMigrationTimeline tokenUsage={tokenUsage} />
+              </div>
+            )}
+
+            {/* Row 7: Fun Comparison (full width) */}
             {stats.totalTokens > 10000 && (
-              <div className="mb-8">
+              <div className="mb-6">
                 <FunComparison
                   totalTokens={stats.totalTokens}
                   estimatedApiSpend={estimatedApiSpend}

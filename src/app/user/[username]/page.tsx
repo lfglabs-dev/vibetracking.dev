@@ -114,6 +114,7 @@ export default async function UserProfilePage({ params }: PageParams) {
             messageCount: a.message_count,
             sessionCount: a.session_count,
             totalTokens: a.total_tokens,
+            cost: a.cost || 0,
           }))}
           tokenUsage={mockTokenUsage.map((t) => ({
             date: t.date,
@@ -121,6 +122,10 @@ export default async function UserProfilePage({ params }: PageParams) {
             model: t.model,
             inputTokens: t.input_tokens,
             outputTokens: t.output_tokens,
+            cacheReadTokens: t.cache_read_tokens || 0,
+            cacheCreationTokens: t.cache_creation_tokens || 0,
+            reasoningTokens: t.reasoning_tokens || 0,
+            cost: t.cost || 0,
           }))}
           isOwnProfile={false}
           currentUsername={authUser?.user_metadata?.user_name}
@@ -137,18 +142,18 @@ export default async function UserProfilePage({ params }: PageParams) {
     .eq("user_id", user.id)
     .single();
 
-  // Get daily activity for heatmap
+  // Get daily activity for heatmap (include cost)
   const { data: dailyActivity } = await supabase
     .from("daily_activity")
-    .select("*")
+    .select("date, tool, message_count, session_count, total_tokens, cost")
     .eq("user_id", user.id)
     .order("date", { ascending: false })
     .limit(365);
 
-  // Get token usage for model breakdown chart
+  // Get token usage for model breakdown chart (include cache, reasoning, cost)
   const { data: tokenUsage } = await supabase
     .from("token_usage")
-    .select("date, tool, model, input_tokens, output_tokens")
+    .select("date, tool, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens, cost")
     .eq("user_id", user.id)
     .order("date", { ascending: true });
 
@@ -218,6 +223,7 @@ export default async function UserProfilePage({ params }: PageParams) {
           messageCount: a.message_count,
           sessionCount: a.session_count,
           totalTokens: a.total_tokens,
+          cost: a.cost || 0,
         })) || []
       }
       tokenUsage={
@@ -227,6 +233,10 @@ export default async function UserProfilePage({ params }: PageParams) {
           model: t.model,
           inputTokens: t.input_tokens,
           outputTokens: t.output_tokens,
+          cacheReadTokens: t.cache_read_tokens || 0,
+          cacheCreationTokens: t.cache_creation_tokens || 0,
+          reasoningTokens: t.reasoning_tokens || 0,
+          cost: t.cost || 0,
         })) || []
       }
       isOwnProfile={isOwnProfile}

@@ -175,6 +175,32 @@ export const MOCK_STATS: Record<string, {
   },
 };
 
+// All 7 supported tools
+const ALL_TOOLS = ["claude_code", "cursor", "codex", "opencode", "claude", "gemini", "amp", "droid"] as const;
+
+// Tool usage weights (some tools are more common)
+const TOOL_WEIGHTS: Record<string, number> = {
+  claude_code: 0.35,
+  cursor: 0.25,
+  codex: 0.15,
+  opencode: 0.08,
+  claude: 0.07,
+  gemini: 0.05,
+  amp: 0.03,
+  droid: 0.02,
+};
+
+// Weighted random tool selection
+function pickWeightedTool(): string {
+  const rand = Math.random();
+  let cumulative = 0;
+  for (const [tool, weight] of Object.entries(TOOL_WEIGHTS)) {
+    cumulative += weight;
+    if (rand < cumulative) return tool;
+  }
+  return "claude_code";
+}
+
 // Generate mock daily activity for the past year
 export function generateMockDailyActivity(username: string) {
   const stats = MOCK_STATS[username];
@@ -186,11 +212,11 @@ export function generateMockDailyActivity(username: string) {
     message_count: number;
     session_count: number;
     total_tokens: number;
+    cost: number;
   }[] = [];
 
   const today = new Date();
   const daysToGenerate = 365;
-  const tools = ["claude_code", "cursor", "codex"];
 
   // Generate activity for random days
   for (let i = 0; i < daysToGenerate; i++) {
@@ -201,21 +227,56 @@ export function generateMockDailyActivity(username: string) {
     // Random chance of having activity that day (based on streak/sessions)
     const activityChance = Math.min(stats.total_sessions / 500, 0.8);
     if (Math.random() < activityChance) {
-      const tool = tools[Math.floor(Math.random() * tools.length)];
-      const tokensForDay = Math.floor(Math.random() * 150000) + 10000;
+      // Generate 1-3 tool entries per day for variety
+      const numTools = Math.random() < 0.3 ? 2 : (Math.random() < 0.1 ? 3 : 1);
+      const usedTools = new Set<string>();
 
-      activity.push({
-        date: dateStr,
-        tool,
-        message_count: Math.floor(Math.random() * 50) + 10,
-        session_count: Math.floor(Math.random() * 5) + 1,
-        total_tokens: tokensForDay,
-      });
+      for (let j = 0; j < numTools; j++) {
+        let tool = pickWeightedTool();
+        // Avoid duplicates
+        while (usedTools.has(tool) && usedTools.size < ALL_TOOLS.length) {
+          tool = pickWeightedTool();
+        }
+        usedTools.add(tool);
+
+        const tokensForDay = Math.floor(Math.random() * 150000) + 10000;
+        // Cost estimate: roughly $3-15 per 1M tokens average
+        const costPerMToken = 3 + Math.random() * 12;
+        const cost = (tokensForDay / 1_000_000) * costPerMToken;
+
+        activity.push({
+          date: dateStr,
+          tool,
+          message_count: Math.floor(Math.random() * 50) + 10,
+          session_count: Math.floor(Math.random() * 5) + 1,
+          total_tokens: tokensForDay,
+          cost: Math.round(cost * 100) / 100,
+        });
+      }
     }
   }
 
   return activity;
 }
+
+// All models with reasoning token support
+const REASONING_MODELS = ["o1", "o1-mini", "o1-preview", "o3-mini", "o3"];
+
+// Model pricing tiers (per 1M tokens, input rate)
+const MODEL_PRICING: Record<string, number> = {
+  "claude-sonnet-4-20250514": 3,
+  "claude-opus-4-20250514": 15,
+  "claude-haiku-3-5-20241022": 0.8,
+  "gpt-4o": 5,
+  "gpt-4o-mini": 0.15,
+  "o1": 15,
+  "o1-mini": 3,
+  "o3-mini": 1.1,
+  "gemini-2.0-flash": 0.1,
+  "gemini-1.5-pro": 1.25,
+  "deepseek-v3": 0.27,
+  "deepseek-r1": 0.55,
+};
 
 // Generate mock token usage for model breakdown
 export function generateMockTokenUsage(username: string) {
@@ -228,18 +289,38 @@ export function generateMockTokenUsage(username: string) {
     model: string;
     input_tokens: number;
     output_tokens: number;
+    cache_read_tokens: number;
+    cache_creation_tokens: number;
+    reasoning_tokens: number;
+    cost: number;
   }[] = [];
 
   const today = new Date();
-  const daysToGenerate = 90; // Last 90 days for model breakdown
-  const tools = ["claude_code", "cursor", "codex"];
+  const daysToGenerate = 180; // Last 180 days for model breakdown (for timeline)
   const models = [
     "claude-sonnet-4-20250514",
     "claude-opus-4-20250514",
     "claude-haiku-3-5-20241022",
     "gpt-4o",
+    "gpt-4o-mini",
+    "o1-mini",
     "o3-mini",
+    "gemini-2.0-flash",
+    "deepseek-v3",
   ];
+
+  // Track model adoption over time (newer models appear later)
+  const modelIntroDate: Record<string, number> = {
+    "claude-haiku-3-5-20241022": 180,
+    "gpt-4o": 180,
+    "claude-sonnet-4-20250514": 120,
+    "gpt-4o-mini": 150,
+    "claude-opus-4-20250514": 90,
+    "o1-mini": 60,
+    "gemini-2.0-flash": 45,
+    "o3-mini": 30,
+    "deepseek-v3": 20,
+  };
 
   // Generate token usage for random days
   for (let i = 0; i < daysToGenerate; i++) {
@@ -250,19 +331,43 @@ export function generateMockTokenUsage(username: string) {
     // Random chance of having activity that day
     const activityChance = Math.min(stats.total_sessions / 500, 0.8);
     if (Math.random() < activityChance) {
-      // Generate 1-3 model entries per day
-      const numModels = Math.floor(Math.random() * 3) + 1;
+      // Generate 1-4 model entries per day
+      const numModels = Math.floor(Math.random() * 4) + 1;
       for (let j = 0; j < numModels; j++) {
-        const tool = tools[Math.floor(Math.random() * tools.length)];
-        const model = models[Math.floor(Math.random() * models.length)];
+        const tool = pickWeightedTool();
+
+        // Filter models to those available at this time
+        const availableModels = models.filter(m => (modelIntroDate[m] || 180) >= i);
+        const model = availableModels[Math.floor(Math.random() * availableModels.length)] || "claude-sonnet-4-20250514";
+
         const totalTokens = Math.floor(Math.random() * 50000) + 5000;
+        const inputTokens = Math.floor(totalTokens * 0.7);
+        const outputTokens = Math.floor(totalTokens * 0.3);
+
+        // Cache tokens: 20-40% of input tokens are cache reads
+        const hasCaching = Math.random() > 0.3;
+        const cacheReadTokens = hasCaching ? Math.floor(inputTokens * (0.2 + Math.random() * 0.2)) : 0;
+        const cacheCreationTokens = hasCaching ? Math.floor(inputTokens * 0.05) : 0;
+
+        // Reasoning tokens: only for o1/o3 models
+        const isReasoningModel = REASONING_MODELS.some(rm => model.includes(rm));
+        const reasoningTokens = isReasoningModel ? Math.floor(outputTokens * (0.5 + Math.random() * 1.5)) : 0;
+
+        // Cost calculation
+        const pricePerMTok = MODEL_PRICING[model] || 3;
+        const effectiveInput = inputTokens - cacheReadTokens; // Cache reads are cheaper
+        const cost = (effectiveInput * pricePerMTok + outputTokens * pricePerMTok * 3 + reasoningTokens * pricePerMTok) / 1_000_000;
 
         tokenUsage.push({
           date: dateStr,
           tool,
           model,
-          input_tokens: Math.floor(totalTokens * 0.7),
-          output_tokens: Math.floor(totalTokens * 0.3),
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          cache_read_tokens: cacheReadTokens,
+          cache_creation_tokens: cacheCreationTokens,
+          reasoning_tokens: reasoningTokens,
+          cost: Math.round(cost * 1000) / 1000,
         });
       }
     }
