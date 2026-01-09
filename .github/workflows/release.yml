@@ -159,17 +159,6 @@ jobs:
         run: ls -la npm/ || echo "No npm directory"
         working-directory: packages/core
 
-      - name: Prepare @vibetracking/core
-        run: bun x @napi-rs/cli prepublish -t npm
-        working-directory: packages/core
-
-      - name: Publish @vibetracking/core
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: npm publish --access public --provenance
-        working-directory: packages/core
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Publish platform packages
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
@@ -179,6 +168,13 @@ jobs:
               (cd "$dir" && npm publish --access public --provenance)
             fi
           done
+        working-directory: packages/core
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @vibetracking/core
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: npm publish --access public --provenance
         working-directory: packages/core
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
