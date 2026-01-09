@@ -2,11 +2,62 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { nanoid } from "nanoid";
-import type { ImportData } from "@/lib/utils";
+
+// New format from CLI (TokenContributionData)
+interface TokenBreakdown {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  reasoning: number;
+}
+
+interface SourceContribution {
+  source: string;
+  modelId: string;
+  providerId?: string;
+  tokens: TokenBreakdown;
+  cost: number;
+  messages: number;
+}
+
+interface DailyContribution {
+  date: string;
+  totals: {
+    tokens: number;
+    cost: number;
+    messages: number;
+  };
+  intensity: 0 | 1 | 2 | 3 | 4;
+  tokenBreakdown: TokenBreakdown;
+  sources: SourceContribution[];
+}
+
+interface DataSummary {
+  totalTokens: number;
+  totalCost: number;
+  totalDays: number;
+  activeDays: number;
+  averagePerDay: number;
+  maxCostInSingleDay: number;
+  sources: string[];
+  models: string[];
+}
+
+interface TokenContributionData {
+  meta: {
+    generatedAt: string;
+    version: string;
+    dateRange: { start: string; end: string };
+  };
+  summary: DataSummary;
+  years: Array<{ year: string; totalTokens: number; totalCost: number; range: { start: string; end: string } }>;
+  contributions: DailyContribution[];
+}
 
 export async function POST(request: Request) {
   try {
-    const data: ImportData & { company?: string } = await request.json();
+    const data: TokenContributionData & { company?: string } = await request.json();
 
     // Get authenticated user
     const supabase = await createServerClient();
@@ -48,87 +99,67 @@ export async function POST(request: Request) {
 
     const profileUrl = `/@${userProfile?.username || authUser.id}`;
 
-    // Process import data
-    const tools = Object.values(data.tools).filter(Boolean);
+    // Validate required data
+    if (!data.contributions || !data.summary) {
+      return NextResponse.json(
+        { message: "Invalid data format: missing contributions or summary" },
+        { status: 400 }
+      );
+    }
 
-    // Aggregate daily activity across tools
-    for (const tool of tools) {
-      if (!tool) continue;
+    // Process contributions (new format: TokenContributionData)
+    const modelTokens: Record<string, number> = {};
+    const toolTokens: Record<string, number> = {};
 
-      for (const activity of tool.dailyActivity) {
+    for (const contribution of data.contributions) {
+      // Aggregate daily activity by source (tool)
+      for (const sourceData of contribution.sources) {
+        const tool = sourceData.source;
+        const totalTokens = sourceData.tokens.input + sourceData.tokens.output +
+          sourceData.tokens.cacheRead + sourceData.tokens.cacheWrite + sourceData.tokens.reasoning;
+
         await serviceSupabase.from("daily_activity").upsert(
           {
             user_id: userId,
-            date: activity.date,
-            tool: tool.tool,
-            message_count: activity.messageCount,
-            session_count: activity.sessionCount,
-            total_tokens: activity.totalTokens || 0,
+            date: contribution.date,
+            tool: tool,
+            message_count: sourceData.messages,
+            session_count: 1, // Sessions not tracked in new format
+            total_tokens: totalTokens,
           },
           {
             onConflict: "user_id,date,tool",
           }
         );
-      }
 
-      // Insert token usage by model
-      for (const model of tool.modelUsage) {
-        const today = new Date().toISOString().split("T")[0];
+        // Insert token usage by model
+        await serviceSupabase.from("token_usage").upsert(
+          {
+            user_id: userId,
+            date: contribution.date,
+            tool: tool,
+            model: sourceData.modelId,
+            input_tokens: sourceData.tokens.input,
+            output_tokens: sourceData.tokens.output,
+          },
+          {
+            onConflict: "user_id,date,tool,model",
+          }
+        );
 
-        await serviceSupabase.from("token_usage").insert({
-          user_id: userId,
-          date: today,
-          tool: tool.tool,
-          model: model.model,
-          input_tokens: model.inputTokens,
-          output_tokens: model.outputTokens,
-        });
-      }
-    }
-
-    // Calculate aggregate stats
-    let totalTokens = 0;
-    let totalSessions = 0;
-    let longestSessionMs = 0;
-    let firstActivityDate: string | null = null;
-    let lastActivityDate: string | null = null;
-    const modelTokens: Record<string, number> = {};
-    const toolTokens: Record<string, number> = {};
-
-    for (const tool of tools) {
-      if (!tool) continue;
-
-      totalTokens += tool.stats.totalTokens;
-      totalSessions += tool.stats.totalSessions;
-      toolTokens[tool.tool] = tool.stats.totalTokens;
-
-      if (tool.stats.longestSessionMs > longestSessionMs) {
-        longestSessionMs = tool.stats.longestSessionMs;
-      }
-
-      if (
-        tool.stats.firstActivityDate &&
-        (!firstActivityDate || tool.stats.firstActivityDate < firstActivityDate)
-      ) {
-        firstActivityDate = tool.stats.firstActivityDate;
-      }
-
-      if (
-        tool.stats.lastActivityDate &&
-        (!lastActivityDate || tool.stats.lastActivityDate > lastActivityDate)
-      ) {
-        lastActivityDate = tool.stats.lastActivityDate;
-      }
-
-      for (const model of tool.modelUsage) {
-        const total =
-          model.inputTokens +
-          model.outputTokens +
-          (model.cacheReadTokens || 0) +
-          (model.cacheCreationTokens || 0);
-        modelTokens[model.model] = (modelTokens[model.model] || 0) + total;
+        // Track for favorites calculation
+        modelTokens[sourceData.modelId] = (modelTokens[sourceData.modelId] || 0) + totalTokens;
+        toolTokens[tool] = (toolTokens[tool] || 0) + totalTokens;
       }
     }
+
+    // Use summary from data
+    const totalTokens = data.summary.totalTokens;
+    const totalSessions = data.summary.activeDays; // Use active days as proxy for sessions
+
+    // Get date range from meta
+    const firstActivityDate = data.meta?.dateRange?.start || null;
+    const lastActivityDate = data.meta?.dateRange?.end || null;
 
     // Find favorite model and tool
     let favoriteModel: string | null = null;
@@ -152,6 +183,7 @@ export async function POST(request: Request) {
     // Calculate streak (simplified - could be more accurate)
     const currentStreakDays = 1; // TODO: Calculate from daily_activity
     const longestStreakDays = 1;
+    const longestSessionMs = 0; // Not tracked in new format
 
     // Upsert user stats
     await serviceSupabase.from("user_stats").upsert(
