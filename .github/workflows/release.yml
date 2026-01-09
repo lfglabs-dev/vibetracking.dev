@@ -112,7 +112,7 @@ jobs:
           path: packages/core
 
       - name: Create universal binary
-        run: bun x @napi-rs/cli universal
+        run: bun x @napi-rs/cli universalize
         working-directory: packages/core
 
       - name: Upload universal artifact
