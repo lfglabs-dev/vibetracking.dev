@@ -1,4 +1,4 @@
-//! Tokscale Core - Native Rust module for high-performance session parsing
+//! Vibetracking Core - Native Rust module for high-performance session parsing
 //!
 //! This module provides parallel file scanning, SIMD JSON parsing, and efficient
 //! aggregation of token usage data from multiple AI coding assistant sessions.
@@ -26,7 +26,7 @@ pub fn version() -> String {
 /// Simple health check to verify the native module is working
 #[napi]
 pub fn health_check() -> String {
-    "tokscale-core is healthy!".to_string()
+    "vibetracking-core is healthy!".to_string()
 }
 
 /// Token breakdown by type
@@ -923,7 +923,7 @@ pub async fn finalize_report(options: FinalizeReportOptions) -> napi::Result<Mod
 
     // Add Cursor messages if enabled
     if options.include_cursor {
-        let cursor_cache_dir = format!("{}/.config/tokscale/cursor-cache", home_dir);
+        let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
         let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files
@@ -1070,7 +1070,7 @@ pub async fn finalize_monthly_report(options: FinalizeMonthlyOptions) -> napi::R
 
     // Add Cursor messages if enabled
     if options.include_cursor {
-        let cursor_cache_dir = format!("{}/.config/tokscale/cursor-cache", home_dir);
+        let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
         let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files
@@ -1202,7 +1202,7 @@ pub async fn finalize_graph(options: FinalizeGraphOptions) -> napi::Result<Graph
 
     // Add Cursor messages if enabled
     if options.include_cursor {
-        let cursor_cache_dir = format!("{}/.config/tokscale/cursor-cache", home_dir);
+        let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
         let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files
@@ -1296,7 +1296,7 @@ pub async fn finalize_report_and_graph(options: FinalizeReportOptions) -> napi::
 
     // Add Cursor messages if enabled
     if options.include_cursor {
-        let cursor_cache_dir = format!("{}/.config/tokscale/cursor-cache", home_dir);
+        let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
         let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files

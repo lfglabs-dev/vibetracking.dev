@@ -131,8 +131,9 @@ export async function POST(request: Request) {
 /**
  * Handle TokenContributionData format (new CLI)
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleTokenContributionData(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof createClient<any>>,
   userId: string,
   data: TokenContributionData
 ) {

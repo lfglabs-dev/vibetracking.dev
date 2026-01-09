@@ -8,7 +8,7 @@ const CACHE_TTL_SECS: u64 = 3600;
 pub fn get_cache_dir() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join("tokscale")
+        .join("vibetracking")
 }
 
 pub fn get_cache_path(filename: &str) -> PathBuf {

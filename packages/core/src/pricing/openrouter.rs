@@ -103,20 +103,20 @@ async fn fetch_author_pricing(
         .await {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("[tokscale] endpoints fetch failed for {}: {}", model_id, e);
+                eprintln!("[vibetracking] endpoints fetch failed for {}: {}", model_id, e);
                 return None;
             }
         };
     
     if !response.status().is_success() {
-        eprintln!("[tokscale] endpoints API returned {} for {}", response.status(), model_id);
+        eprintln!("[vibetracking] endpoints API returned {} for {}", response.status(), model_id);
         return None;
     }
     
     let data: EndpointsResponse = match response.json().await {
         Ok(d) => d,
         Err(e) => {
-            eprintln!("[tokscale] endpoints JSON parse failed for {}: {}", model_id, e);
+            eprintln!("[vibetracking] endpoints JSON parse failed for {}: {}", model_id, e);
             return None;
         }
     };
@@ -126,7 +126,7 @@ async fn fetch_author_pricing(
         .find(|e| e.provider_name == author_name) {
             Some(ep) => ep,
             None => {
-                eprintln!("[tokscale] author provider '{}' not found for {}", author_name, model_id);
+                eprintln!("[vibetracking] author provider '{}' not found for {}", author_name, model_id);
                 return None;
             }
         };
@@ -194,14 +194,14 @@ pub async fn fetch_all_models() -> HashMap<String, ModelPricing> {
             }
             
             if !status.is_success() {
-                eprintln!("[tokscale] OpenRouter models API returned {}", status);
+                eprintln!("[vibetracking] OpenRouter models API returned {}", status);
                 break 'retry Vec::new();
             }
             
             let data: ModelsListResponse = match response.json().await {
                 Ok(d) => d,
                 Err(e) => {
-                    eprintln!("[tokscale] OpenRouter models JSON parse failed: {}", e);
+                    eprintln!("[vibetracking] OpenRouter models JSON parse failed: {}", e);
                     break 'retry Vec::new();
                 }
             };
@@ -210,7 +210,7 @@ pub async fn fetch_all_models() -> HashMap<String, ModelPricing> {
         }
         
         if let Some(err) = &last_error {
-            eprintln!("[tokscale] OpenRouter fetch failed after {} retries: {}", MAX_RETRIES, err);
+            eprintln!("[vibetracking] OpenRouter fetch failed after {} retries: {}", MAX_RETRIES, err);
         }
         Vec::new()
     };
