@@ -6,13 +6,27 @@ interface AuthOptionsProps {
   isLoading: boolean;
 }
 
+// Storage key for pending import data
+export const IMPORT_DATA_KEY = "vibetracking_import_data";
+export const IMPORT_DATA_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+export interface StoredImportData {
+  data: string;
+  timestamp: number;
+}
+
 export function AuthOptions({ isLoading }: AuthOptionsProps) {
   const handleGitHubLogin = async () => {
     const supabase = createClient();
 
-    // Store the hash data in sessionStorage before redirecting
+    // Store the hash data in localStorage with timestamp before redirecting
+    // Using localStorage instead of sessionStorage to survive OAuth redirects
     if (typeof window !== "undefined" && window.location.hash) {
-      sessionStorage.setItem("importData", window.location.hash.slice(1));
+      const storedData: StoredImportData = {
+        data: window.location.hash.slice(1),
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(IMPORT_DATA_KEY, JSON.stringify(storedData));
     }
 
     const { error } = await supabase.auth.signInWithOAuth({
