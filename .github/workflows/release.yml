@@ -9,8 +9,17 @@ on:
       dry_run:
         description: 'Dry run (skip npm publish)'
         required: false
-        default: 'false'
+        default: false
         type: boolean
+      skip_build:
+        description: 'Skip build (reuse artifacts from previous run)'
+        required: false
+        default: false
+        type: boolean
+      run_id:
+        description: 'Run ID to download artifacts from (required if skip_build is true)'
+        required: false
+        type: string
 
 env:
   DEBUG: napi:*
@@ -19,9 +28,11 @@ env:
 permissions:
   contents: write
   id-token: write
+  actions: read
 
 jobs:
   build:
+    if: ${{ github.event.inputs.skip_build != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -84,6 +95,7 @@ jobs:
           if-no-files-found: error
 
   build-universal-macos:
+    if: ${{ github.event.inputs.skip_build != 'true' }}
     name: Build - universal-apple-darwin
     needs: build
     runs-on: macos-latest
@@ -128,6 +140,7 @@ jobs:
     needs:
       - build
       - build-universal-macos
+    if: ${{ always() && (github.event.inputs.skip_build == 'true' || (needs.build.result == 'success' && needs.build-universal-macos.result == 'success')) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -146,10 +159,19 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Download all artifacts
+      - name: Download artifacts from current run
+        if: ${{ github.event.inputs.skip_build != 'true' }}
         uses: actions/download-artifact@v4
         with:
           path: packages/core/artifacts
+
+      - name: Download artifacts from previous run
+        if: ${{ github.event.inputs.skip_build == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          path: packages/core/artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.inputs.run_id }}
 
       - name: Move artifacts
         run: bun x @napi-rs/cli artifacts
