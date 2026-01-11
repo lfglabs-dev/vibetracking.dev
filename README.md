@@ -168,7 +168,7 @@ bun run dist/cli.js
 │ Claude:   ~/.claude/projects/
 │ OpenCode: ~/.local/share/opencode/
 │ Codex:    ~/.codex/
-│ Cursor:   API (requires login)
+│ Cursor:   Browser CSV download
 │ Gemini:   ~/.gemini/
 │ Amp:      ~/.amp/
 │ Droid:    ~/.droid/
@@ -216,35 +216,13 @@ The CLI scans local AI coding tool data and opens your browser to import it via 
 
 ### Cursor IDE Integration
 
-Cursor requires authentication to fetch usage data:
+If Cursor is installed, the CLI will:
 
-```bash
-# Login to Cursor
-bunx vibetracking cursor login
+1. Open your browser to download usage data from cursor.com
+2. Detect the downloaded CSV automatically
+3. Import it alongside your other AI tool data
 
-# Check authentication status
-bunx vibetracking cursor status
-
-# Logout
-bunx vibetracking cursor logout
-```
-
-### Background Sync
-
-After authenticating via browser, you can sync in the background:
-
-```bash
-# Sync data silently (for cron jobs, hooks, etc.)
-bunx vibetracking sync --quiet
-```
-
-### Model Pricing Lookup
-
-```bash
-# Look up pricing for any model
-bunx vibetracking pricing claude-3-5-sonnet-20241022
-bunx vibetracking pricing gpt-4o --json
-```
+If auto-detection fails, you can drag-and-drop the CSV file into the terminal.
 
 ---
 
@@ -296,8 +274,7 @@ bun run test:all     # Run both
 
 ```bash
 cd packages/cli
-bun run src/cli.ts              # Default command (opens browser)
-bun run src/cli.ts cursor login # Cursor authentication
+bun run src/cli.ts              # Scan data and open browser
 ```
 
 ### Web Application
@@ -360,7 +337,7 @@ npm publish
 - **Claude Code**: Check `~/.claude/projects/` exists
 - **OpenCode**: Check `~/.local/share/opencode/` exists
 - **Codex**: Check `~/.codex/` exists
-- **Cursor**: Run `vibetracking cursor login` first
+- **Cursor**: Make sure you're logged into cursor.com in your browser
 
 ### Native module build fails
 

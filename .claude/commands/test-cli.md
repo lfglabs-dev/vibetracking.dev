@@ -59,48 +59,31 @@ cd packages/cli && bun run --conditions=browser src/cli.ts -i fricoben
 
 ## Step 3: Cursor Integration
 
-### Login to Cursor
+If Cursor is installed, the CLI will automatically:
 
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts cursor login
-```
+1. Open your browser to `cursor.com/api/dashboard/export-usage-events-csv`
+2. Wait for the CSV to download
+3. Detect the download in your Downloads folder
+4. Import it alongside other AI tool data
 
-You'll need to:
-1. Open https://www.cursor.com/dashboard
-2. Open DevTools > Network tab
-3. Find any request to cursor.com/api
-4. Copy the `WorkosCursorSessionToken` cookie value
+**If auto-detection fails:**
+- The CLI will prompt you to drag-and-drop the CSV file
+- Or press Enter to skip Cursor data
 
-### Check Cursor Status
-
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts cursor status
-```
-
-### Logout from Cursor
-
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts cursor logout
-```
-
----
-
-## Step 4: First-Run Cursor Prompt
-
-If Cursor is installed but not logged in, the CLI will prompt:
-
+**Expected behavior:**
 ```bash
 cd packages/cli && bun run --conditions=browser src/cli.ts
 ```
 
-**Expected behavior:**
-- Detects Cursor installation
-- Asks "Would you like to include your Cursor usage data? (y/n)"
-- If yes, opens browser and prompts for token
+- Shows "Cursor detected! Opening browser to download your usage data..."
+- Browser opens to Cursor export URL
+- Shows "Waiting for download..."
+- When detected: "Found: usage-events-YYYY-MM-DD.csv"
+- Shows "Imported X Cursor usage events."
 
 ---
 
-## Step 5: Integration Test with Dev Server
+## Step 4: Integration Test with Dev Server
 
 ### Start the Dev Server
 
@@ -133,10 +116,9 @@ VIBETRACKING_API_URL=http://localhost:3000 cd packages/cli && bun run --conditio
 |------|---------|----------|
 | Default (browser) | `src/cli.ts` | Shows stats, opens browser |
 | Inviter flag | `src/cli.ts -i username` | Adds inviter param to URL |
-| Cursor login | `src/cli.ts cursor login` | Prompts for token |
-| Cursor status | `src/cli.ts cursor status` | Shows auth status |
-| Cursor logout | `src/cli.ts cursor logout` | Clears credentials |
-| First-run prompt | (with Cursor installed) | Prompts for Cursor setup |
+| Cursor auto-detect | (with Cursor installed) | Opens browser, detects download |
+| Cursor drag-drop | (skip auto-detect) | Prompts for file, accepts drag-drop |
+| Skip Cursor | (press Enter at prompt) | Continues without Cursor data |
 
 ---
 
@@ -150,7 +132,7 @@ The CLI scans these locations:
 | Codex | `~/.codex/` |
 | OpenCode | `~/.local/share/opencode/` |
 | Gemini | `~/.gemini/` |
-| Cursor | Via API (requires login) |
+| Cursor | Browser CSV download → `~/.vibetracking/cursor-cache/` |
 | Amp | `~/.ampcode/sessions/` |
 | Droid | `~/Library/.../googleAiStudio/history/` |
 
@@ -160,8 +142,7 @@ The CLI scans these locations:
 
 | File | Purpose |
 |------|---------|
-| `~/.vibetracking/cursor-credentials.json` | Cursor session token |
-| `~/.vibetracking/cursor-cache/usage.csv` | Cached Cursor data |
+| `~/.vibetracking/cursor-cache/usage.csv` | Cached Cursor data (from browser download) |
 | `~/.cache/vibetracking/pricing-litellm.json` | Cached LiteLLM pricing |
 | `~/.cache/vibetracking/pricing-openrouter.json` | Cached OpenRouter pricing |
 
@@ -175,7 +156,7 @@ The CLI scans these locations:
 
 ### "No data found"
 - Check if you have data in `~/.claude/` or `~/.codex/`
-- For Cursor: run `vibetracking cursor login` first
+- For Cursor: make sure you're logged into cursor.com in your browser
 
 ### "Browser doesn't open"
 - URL is printed to console, open manually

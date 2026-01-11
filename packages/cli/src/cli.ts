@@ -14,15 +14,9 @@ import open from "open";
 import pako from "pako";
 
 import {
-  loadCursorCredentials,
-  saveCursorCredentials,
-  clearCursorCredentials,
-  validateCursorSession,
-  readCursorUsage,
-  getCursorCredentialsPath,
   syncCursorCache,
-  isCursorLoggedIn,
   isCursorInstalled,
+  type CursorSyncResult,
 } from "./cursor.js";
 import {
   initNativeModule,
@@ -49,12 +43,6 @@ function getApiBaseUrl(): string {
   return process.env.VIBETRACKING_API_URL || "https://vibetracking.dev";
 }
 
-interface CursorSyncResult {
-  attempted: boolean;
-  synced: boolean;
-  rows: number;
-  error?: string;
-}
 
 // =============================================================================
 // Data Encoding for Browser Import
@@ -84,115 +72,11 @@ async function main() {
       await openBrowserWithData(options.inviter);
     });
 
-  // Cursor IDE integration
-  const cursorCommand = program
-    .command("cursor")
-    .description("Cursor IDE integration commands");
-
-  cursorCommand
-    .command("login")
-    .description("Login to Cursor (paste your session token)")
-    .action(async () => {
-      await cursorLogin();
-    });
-
-  cursorCommand
-    .command("logout")
-    .description("Logout from Cursor")
-    .action(async () => {
-      await cursorLogout();
-    });
-
-  cursorCommand
-    .command("status")
-    .description("Check Cursor authentication status")
-    .action(async () => {
-      await cursorStatus();
-    });
-
   await program.parseAsync();
 }
 
-/**
- * Prompt user to login to Cursor during first-run if Cursor is installed
- * Returns true if user successfully logged in, false otherwise
- */
-async function promptForCursorLogin(): Promise<boolean> {
-  const readline = await import("node:readline");
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  // Ask y/n question
-  const shouldLogin = await new Promise<boolean>((resolve) => {
-    rl.question(pc.white("  Would you like to include your Cursor usage data? (y/n): "), (answer) => {
-      resolve(answer.trim().toLowerCase() === "y");
-    });
-  });
-
-  if (!shouldLogin) {
-    rl.close();
-    console.log();
-    return false;
-  }
-
-  // Open browser to Cursor dashboard
-  console.log(pc.gray("\n  Opening Cursor dashboard in your browser..."));
-  await open("https://www.cursor.com/dashboard");
-
-  // Show instructions - token is HttpOnly so must use Network tab
-  const isMac = process.platform === "darwin";
-  const devtoolsShortcut = isMac ? "Cmd+Option+I" : "F12";
-
-  console.log(pc.white("\n  To get your token:"));
-  console.log(pc.gray(`  1. Press ${pc.white(devtoolsShortcut)} to open DevTools`));
-  console.log(pc.gray(`  2. Go to ${pc.white("Network")} tab, click any request to cursor.com`));
-  console.log(pc.gray(`  3. In the ${pc.white("Cookies")} tab, find ${pc.white("WorkosCursorSessionToken")}`));
-  console.log(pc.gray(`  4. Copy the value (starts with "eyJ...")`));
-  console.log();
-
-  // Prompt for token
-  const token = await new Promise<string>((resolve) => {
-    rl.question(pc.white("  Paste your session token: "), (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
-
-  if (!token) {
-    console.log(pc.yellow("\n  Skipped. You can run 'vibetracking cursor login' later.\n"));
-    return false;
-  }
-
-  // Validate and save
-  console.log(pc.gray("\n  Validating token..."));
-  const validation = await validateCursorSession(token);
-
-  if (!validation.valid) {
-    console.log(pc.red(`\n  Invalid token: ${validation.error}`));
-    console.log(pc.gray("  Continuing without Cursor data. Run 'vibetracking cursor login' later.\n"));
-    return false;
-  }
-
-  saveCursorCredentials({
-    sessionToken: token,
-    createdAt: new Date().toISOString(),
-  });
-
-  console.log(pc.green("\n  Success! Logged in to Cursor."));
-  if (validation.membershipType) {
-    console.log(pc.gray(`  Membership: ${validation.membershipType}`));
-  }
-  console.log();
-
-  return true;
-}
-
 async function openBrowserWithData(inviterUsername?: string) {
-  // Check if Cursor is installed but not logged in - prompt user to setup
   const cursorInstalled = isCursorInstalled();
-  const cursorLoggedIn = isCursorLoggedIn();
 
   // Clean inviter username (strip @ prefix if present)
   const inviter = inviterUsername?.replace(/^@/, "");
@@ -203,11 +87,6 @@ async function openBrowserWithData(inviterUsername?: string) {
     console.log(pc.magenta(`  Accepting challenge from @${inviter}\n`));
   }
 
-  if (cursorInstalled && !cursorLoggedIn) {
-    console.log(pc.white("  We detected Cursor IDE installed."));
-    await promptForCursorLogin();
-  }
-
   // Initialize native module (downloads binary on first run)
   try {
     await initNativeModule();
@@ -216,27 +95,32 @@ async function openBrowserWithData(inviterUsername?: string) {
     process.exit(1);
   }
 
+  // Sync Cursor data first (requires user interaction - opens browser)
+  let cursorSync: CursorSyncResult = { synced: false, rows: 0 };
+  if (cursorInstalled) {
+    cursorSync = await syncCursorCache();
+  }
+
   const spinner = createSpinner({ color: "magenta" });
   spinner.start(pc.gray("Scanning your AI coding adventures..."));
 
-  const allSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'];
-  const localSources = allSources.filter(s => s !== 'cursor');
-  const includeCursor = isCursorLoggedIn();
-
-  const { cursorSync, localMessages } = await loadDataSourcesParallel(localSources);
+  const localSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'amp', 'droid'];
+  const localMessages = await parseLocalSourcesAsync({ sources: localSources });
 
   // Check if we have any data - either from local sources or Cursor
   const hasLocalData = localMessages && localMessages.messages.length > 0;
-  const hasCursorData = includeCursor && cursorSync.synced && cursorSync.rows > 0;
+  const hasCursorData = cursorSync.synced && cursorSync.rows > 0;
 
   if (!hasLocalData && !hasCursorData) {
     spinner.error("No AI coding adventures found yet!");
     console.log(pc.gray("\n  Supported tools:"));
     console.log(pc.gray("  - Claude Code (~/.claude/projects/)"));
     console.log(pc.gray("  - Codex (~/.codex/)"));
-    console.log(pc.gray("  - Cursor (use 'vibetracking cursor login' first)"));
+    console.log(pc.gray("  - Cursor (download from cursor.com)"));
+    console.log(pc.gray("  - Gemini (~/.gemini/)"));
+    console.log(pc.gray("  - Amp (~/.ampcode/)"));
     if (cursorSync.error) {
-      console.log(pc.gray(`\n  Cursor sync error: ${cursorSync.error}`));
+      console.log(pc.gray(`\n  Cursor error: ${cursorSync.error}`));
     }
     console.log();
     process.exit(1);
@@ -259,7 +143,7 @@ async function openBrowserWithData(inviterUsername?: string) {
   const messagesForGraph = localMessages ?? emptyParsedMessages;
   const graphData = await finalizeGraphAsync({
     localMessages: messagesForGraph,
-    includeCursor: includeCursor && cursorSync.synced,
+    includeCursor: cursorSync.synced,
   });
 
   spinner.stop();
@@ -289,179 +173,6 @@ async function openBrowserWithData(inviterUsername?: string) {
   console.log(pc.gray(`     vibetracking.dev/import#...\n`));
 
   await open(url);
-}
-
-// =============================================================================
-// Data Loading
-// =============================================================================
-
-async function syncCursorData(): Promise<CursorSyncResult> {
-  const credentials = loadCursorCredentials();
-  if (!credentials) {
-    return { attempted: false, synced: false, rows: 0 };
-  }
-
-  const result = await syncCursorCache();
-  return {
-    attempted: true,
-    synced: result.synced,
-    rows: result.rows,
-    error: result.error,
-  };
-}
-
-interface LoadedDataSources {
-  cursorSync: CursorSyncResult;
-  localMessages: ParsedMessages | null;
-}
-
-async function loadDataSourcesParallel(
-  localSources: SourceType[]
-): Promise<LoadedDataSources> {
-  const shouldParseLocal = localSources.length > 0;
-
-  const [cursorResult, localResult] = await Promise.allSettled([
-    syncCursorData(),
-    shouldParseLocal
-      ? parseLocalSourcesAsync({
-          sources: localSources.filter(s => s !== 'cursor'),
-        })
-      : Promise.resolve(null),
-  ]);
-
-  const cursorSync: CursorSyncResult = cursorResult.status === 'fulfilled'
-    ? cursorResult.value
-    : { attempted: true, synced: false, rows: 0, error: 'Cursor sync failed' };
-
-  const localMessages: ParsedMessages | null = localResult.status === 'fulfilled'
-    ? localResult.value
-    : null;
-
-  return { cursorSync, localMessages };
-}
-
-// =============================================================================
-// Cursor IDE Authentication
-// =============================================================================
-
-async function cursorLogin(): Promise<void> {
-  const credentials = loadCursorCredentials();
-  if (credentials) {
-    console.log(pc.yellow("\n  Already logged in to Cursor."));
-    console.log(pc.gray("  Run 'vibetracking cursor logout' to sign out first.\n"));
-    return;
-  }
-
-  console.log(pc.cyan("\n  Cursor IDE - Login\n"));
-
-  // Open browser to Cursor dashboard
-  console.log(pc.gray("  Opening Cursor dashboard in your browser..."));
-  await open("https://www.cursor.com/dashboard");
-
-  // Show instructions - token is HttpOnly so must use Network tab
-  const isMac = process.platform === "darwin";
-  const devtoolsShortcut = isMac ? "Cmd+Option+I" : "F12";
-
-  console.log(pc.white("\n  To get your token:"));
-  console.log(pc.gray(`  1. Press ${pc.white(devtoolsShortcut)} to open DevTools`));
-  console.log(pc.gray(`  2. Go to ${pc.white("Network")} tab, click any request to cursor.com`));
-  console.log(pc.gray(`  3. In the ${pc.white("Cookies")} tab, find ${pc.white("WorkosCursorSessionToken")}`));
-  console.log(pc.gray(`  4. Copy the value (starts with "eyJ...")`));
-  console.log();
-
-  const readline = await import("node:readline");
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  const token = await new Promise<string>((resolve) => {
-    rl.question(pc.white("  Paste your session token: "), (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
-
-  if (!token) {
-    console.log(pc.red("\n  No token provided. Login cancelled.\n"));
-    return;
-  }
-
-  console.log(pc.gray("\n  Validating token..."));
-  const validation = await validateCursorSession(token);
-
-  if (!validation.valid) {
-    console.log(pc.red(`\n  Invalid token: ${validation.error}`));
-    console.log(pc.gray("  Please try again with a valid session token.\n"));
-    return;
-  }
-
-  saveCursorCredentials({
-    sessionToken: token,
-    createdAt: new Date().toISOString(),
-  });
-
-  console.log(pc.green("\n  Success! Logged in to Cursor."));
-  if (validation.membershipType) {
-    console.log(pc.gray(`  Membership: ${validation.membershipType}`));
-  }
-  console.log(pc.gray("  Your usage data will now be included in reports.\n"));
-}
-
-async function cursorLogout(): Promise<void> {
-  const credentials = loadCursorCredentials();
-
-  if (!credentials) {
-    console.log(pc.yellow("\n  Not logged in to Cursor.\n"));
-    return;
-  }
-
-  const cleared = clearCursorCredentials();
-
-  if (cleared) {
-    console.log(pc.green("\n  Logged out from Cursor.\n"));
-  } else {
-    console.error(pc.red("\n  Failed to clear Cursor credentials.\n"));
-    process.exit(1);
-  }
-}
-
-async function cursorStatus(): Promise<void> {
-  const credentials = loadCursorCredentials();
-
-  if (!credentials) {
-    console.log(pc.yellow("\n  Not logged in to Cursor."));
-    console.log(pc.gray("  Run 'vibetracking cursor login' to authenticate.\n"));
-    return;
-  }
-
-  console.log(pc.cyan("\n  Cursor IDE - Status\n"));
-  console.log(pc.gray("  Checking session validity..."));
-
-  const validation = await validateCursorSession(credentials.sessionToken);
-
-  if (validation.valid) {
-    console.log(pc.green("  Session is valid"));
-    if (validation.membershipType) {
-      console.log(pc.white(`  Membership: ${validation.membershipType}`));
-    }
-    console.log(pc.gray(`  Logged in: ${new Date(credentials.createdAt).toLocaleDateString()}`));
-
-    try {
-      const usage = await readCursorUsage();
-      const totalCost = usage.byModel.reduce((sum, m) => sum + m.cost, 0);
-      console.log(pc.gray(`  Models used: ${usage.byModel.length}`));
-      console.log(pc.gray(`  Total usage events: ${usage.rows.length}`));
-      console.log(pc.gray(`  Total cost: $${totalCost.toFixed(2)}`));
-    } catch {
-      // Ignore fetch errors for status check
-    }
-  } else {
-    console.log(pc.red(`  Session invalid: ${validation.error}`));
-    console.log(pc.gray("  Run 'vibetracking cursor login' to re-authenticate."));
-  }
-
-  console.log(pc.gray(`\n  Credentials: ${getCursorCredentialsPath()}\n`));
 }
 
 main().catch(console.error);

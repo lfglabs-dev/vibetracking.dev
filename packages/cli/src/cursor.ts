@@ -1,29 +1,25 @@
 /**
- * Cursor IDE API Client
- * Fetches usage data from Cursor's dashboard API via CSV export
+ * Cursor IDE Usage Data Import
+ * Downloads usage CSV via browser and parses it for vibetracking
  *
- * API Endpoint: https://cursor.com/api/dashboard/export-usage-events-csv?strategy=tokens
- * Authentication: WorkosCursorSessionToken cookie
- *
- * CSV Format:
- * Date,Model,Input (w/ Cache Write),Input (w/o Cache Write),Cache Read,Output Tokens,Total Tokens,Cost,Cost to you
+ * Flow:
+ * 1. Open browser to Cursor's CSV export URL (user already logged in)
+ * 2. Wait for CSV to appear in Downloads folder
+ * 3. If not found, prompt user to drag-and-drop the file
+ * 4. Copy CSV to cache location for Rust module to parse
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import * as readline from "node:readline";
 import { parse as parseCsv } from "csv-parse/sync";
+import open from "open";
+import pc from "picocolors";
 
 // ============================================================================
 // Types
 // ============================================================================
-
-export interface CursorCredentials {
-  sessionToken: string;
-  userId?: string;
-  createdAt: string;
-  expiresAt?: string;
-}
 
 export interface CursorUsageRow {
   date: string; // YYYY-MM-DD
@@ -64,12 +60,50 @@ export interface CursorMessageWithTimestamp {
   cost: number;
 }
 
+export interface CursorUnifiedMessage {
+  source: "cursor";
+  modelId: string;
+  providerId: string;
+  sessionId: string;
+  timestamp: number;
+  date: string;
+  tokens: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    reasoning: number;
+  };
+  cost: number;
+}
+
+export interface CursorSyncResult {
+  synced: boolean;
+  rows: number;
+  skipped?: boolean;
+  error?: string;
+}
+
 // ============================================================================
-// Credential Management
+// Constants
 // ============================================================================
 
 const CONFIG_DIR = path.join(os.homedir(), ".vibetracking");
-const CURSOR_CREDENTIALS_FILE = path.join(CONFIG_DIR, "cursor-credentials.json");
+const CURSOR_CACHE_DIR = path.join(CONFIG_DIR, "cursor-cache");
+const CURSOR_CACHE_FILE = path.join(CURSOR_CACHE_DIR, "usage.csv");
+
+// Date range for export: Jan 1, 2020 to now
+const EXPORT_START_DATE = new Date("2020-01-01").getTime();
+
+// Timeout for waiting for download (30 seconds)
+const DOWNLOAD_TIMEOUT_MS = 30_000;
+
+// Poll interval for checking downloads folder
+const POLL_INTERVAL_MS = 1_000;
+
+// ============================================================================
+// Directory Helpers
+// ============================================================================
 
 function ensureConfigDir(): void {
   if (!fs.existsSync(CONFIG_DIR)) {
@@ -77,47 +111,10 @@ function ensureConfigDir(): void {
   }
 }
 
-
-export function saveCursorCredentials(credentials: CursorCredentials): void {
-  ensureConfigDir();
-  fs.writeFileSync(CURSOR_CREDENTIALS_FILE, JSON.stringify(credentials, null, 2), {
-    encoding: "utf-8",
-    mode: 0o600,
-  });
-}
-
-export function loadCursorCredentials(): CursorCredentials | null {
-  try {
-    if (!fs.existsSync(CURSOR_CREDENTIALS_FILE)) {
-      return null;
-    }
-    const data = fs.readFileSync(CURSOR_CREDENTIALS_FILE, "utf-8");
-    const parsed = JSON.parse(data);
-
-    if (!parsed.sessionToken) {
-      return null;
-    }
-
-    return parsed as CursorCredentials;
-  } catch {
-    return null;
+function ensureCacheDir(): void {
+  if (!fs.existsSync(CURSOR_CACHE_DIR)) {
+    fs.mkdirSync(CURSOR_CACHE_DIR, { recursive: true, mode: 0o700 });
   }
-}
-
-export function clearCursorCredentials(): boolean {
-  try {
-    if (fs.existsSync(CURSOR_CREDENTIALS_FILE)) {
-      fs.unlinkSync(CURSOR_CREDENTIALS_FILE);
-      return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-export function isCursorLoggedIn(): boolean {
-  return loadCursorCredentials() !== null;
 }
 
 /**
@@ -143,87 +140,211 @@ export function isCursorInstalled(): boolean {
 }
 
 // ============================================================================
-// API Client
+// Browser Download Flow
 // ============================================================================
 
-const CURSOR_API_BASE = "https://cursor.com";
-const USAGE_CSV_ENDPOINT = `${CURSOR_API_BASE}/api/dashboard/export-usage-events-csv?strategy=tokens`;
-const USAGE_SUMMARY_ENDPOINT = `${CURSOR_API_BASE}/api/usage-summary`;
-
 /**
- * Build HTTP headers for Cursor API requests
+ * Get common download folder paths for the current platform
  */
-function buildCursorHeaders(sessionToken: string): Record<string, string> {
-  return {
-    Accept: "*/*",
-    "Accept-Language": "en-US,en;q=0.9",
-    Cookie: `WorkosCursorSessionToken=${sessionToken}`,
-    Referer: "https://www.cursor.com/settings",
-    "User-Agent":
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  };
-}
+function getDownloadsFolders(): string[] {
+  const home = os.homedir();
+  const folders: string[] = [];
 
-/**
- * Validate Cursor session token by hitting the usage-summary endpoint
- */
-export async function validateCursorSession(
-  sessionToken: string
-): Promise<{ valid: boolean; membershipType?: string; error?: string }> {
-  try {
-    const response = await fetch(USAGE_SUMMARY_ENDPOINT, {
-      method: "GET",
-      headers: buildCursorHeaders(sessionToken),
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      return { valid: false, error: "Session token expired or invalid" };
-    }
-
-    if (!response.ok) {
-      return { valid: false, error: `API returned status ${response.status}` };
-    }
-
-    const data = await response.json();
-
-    // Check for required fields that indicate valid auth
-    if (data.billingCycleStart && data.billingCycleEnd) {
-      return { valid: true, membershipType: data.membershipType };
-    }
-
-    return { valid: false, error: "Invalid response format" };
-  } catch (error) {
-    return { valid: false, error: (error as Error).message };
+  if (process.platform === "darwin") {
+    folders.push(path.join(home, "Downloads"));
+  } else if (process.platform === "linux") {
+    folders.push(path.join(home, "Downloads"));
+    folders.push(path.join(home, "downloads")); // Some distros use lowercase
+  } else if (process.platform === "win32") {
+    // Windows Downloads folder
+    const userProfile = process.env.USERPROFILE || home;
+    folders.push(path.join(userProfile, "Downloads"));
   }
+
+  // Filter to existing directories
+  return folders.filter((f) => {
+    try {
+      return fs.existsSync(f) && fs.statSync(f).isDirectory();
+    } catch {
+      return false;
+    }
+  });
 }
 
 /**
- * Fetch usage CSV from Cursor API
+ * Open browser to Cursor's CSV export page
+ * The CSV will be downloaded automatically if user is logged in
  */
-export async function fetchCursorUsageCsv(sessionToken: string): Promise<string> {
-  const response = await fetch(USAGE_CSV_ENDPOINT, {
-    method: "GET",
-    headers: buildCursorHeaders(sessionToken),
+export async function openCursorExportPage(): Promise<void> {
+  const endDate = Date.now();
+  const startDate = EXPORT_START_DATE;
+  const url = `https://cursor.com/api/dashboard/export-usage-events-csv?startDate=${startDate}&endDate=${endDate}&strategy=tokens`;
+  await open(url);
+}
+
+/**
+ * Find the most recent Cursor CSV file in download folders
+ * that was modified after the given timestamp
+ */
+function findRecentCursorCsv(afterTimestamp: number): string | null {
+  const folders = getDownloadsFolders();
+  let mostRecent: { path: string; mtime: number } | null = null;
+
+  for (const folder of folders) {
+    try {
+      const files = fs.readdirSync(folder);
+      for (const file of files) {
+        // Match Cursor's export filename pattern: usage-events-YYYY-MM-DD*.csv
+        if (!file.startsWith("usage-events") || !file.endsWith(".csv")) {
+          continue;
+        }
+
+        const filePath = path.join(folder, file);
+        try {
+          const stats = fs.statSync(filePath);
+          const mtime = stats.mtimeMs;
+
+          // File must be newer than when we opened the browser
+          if (mtime > afterTimestamp) {
+            if (!mostRecent || mtime > mostRecent.mtime) {
+              mostRecent = { path: filePath, mtime };
+            }
+          }
+        } catch {
+          // Skip files we can't stat
+        }
+      }
+    } catch {
+      // Skip folders we can't read
+    }
+  }
+
+  return mostRecent?.path ?? null;
+}
+
+/**
+ * Wait for Cursor CSV to appear in downloads folder
+ */
+async function waitForCursorCsv(afterTimestamp: number, timeoutMs: number): Promise<string | null> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    const found = findRecentCursorCsv(afterTimestamp);
+    if (found) {
+      return found;
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+
+  return null;
+}
+
+/**
+ * Prompt user to drag-and-drop the CSV file or skip
+ */
+async function promptForCsvPath(): Promise<string | null> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
 
-  if (response.status === 401 || response.status === 403) {
-    throw new Error("Cursor session expired. Please run 'vibetracking cursor login' to re-authenticate.");
+  return new Promise((resolve) => {
+    rl.question(pc.white("\n  Drag the downloaded CSV here (or press Enter to skip): "), (answer) => {
+      rl.close();
+      const trimmed = answer.trim();
+
+      if (!trimmed) {
+        resolve(null);
+        return;
+      }
+
+      // Handle paths with quotes (drag-drop on some terminals)
+      const cleanPath = trimmed.replace(/^["']|["']$/g, "").replace(/\\ /g, " ");
+
+      // Validate file exists
+      if (!fs.existsSync(cleanPath)) {
+        console.log(pc.red(`  File not found: ${cleanPath}`));
+        resolve(null);
+        return;
+      }
+
+      // Validate it's a CSV file
+      if (!cleanPath.toLowerCase().endsWith(".csv")) {
+        console.log(pc.red("  File must be a CSV file"));
+        resolve(null);
+        return;
+      }
+
+      resolve(cleanPath);
+    });
+  });
+}
+
+/**
+ * Validate that a file contains valid Cursor CSV data
+ */
+function validateCursorCsv(filePath: string): boolean {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    // Check for expected CSV header
+    return content.startsWith("Date,");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sync Cursor usage data via browser download
+ * Opens browser to download CSV, waits for it, copies to cache
+ */
+export async function syncCursorCache(): Promise<CursorSyncResult> {
+  const beforeDownload = Date.now();
+
+  console.log(pc.cyan("\n  Cursor detected! Opening browser to download your usage data..."));
+  await openCursorExportPage();
+
+  // Wait a moment for browser to open
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  console.log(pc.gray("  Waiting for download..."));
+
+  // Wait for CSV to appear in downloads
+  let csvPath = await waitForCursorCsv(beforeDownload, DOWNLOAD_TIMEOUT_MS);
+
+  if (csvPath) {
+    console.log(pc.green(`  Found: ${path.basename(csvPath)}`));
+  } else {
+    console.log(pc.yellow("  Download not detected automatically."));
+    const userPath = await promptForCsvPath();
+
+    if (!userPath) {
+      console.log(pc.gray("  Skipping Cursor data."));
+      return { synced: false, rows: 0, skipped: true };
+    }
+    csvPath = userPath;
   }
 
-  if (!response.ok) {
-    throw new Error(`Cursor API returned status ${response.status}`);
+  // Validate the CSV
+  if (!validateCursorCsv(csvPath)) {
+    console.log(pc.red("  Invalid CSV file - doesn't look like Cursor export data."));
+    return { synced: false, rows: 0, error: "Invalid CSV format" };
   }
 
-  const text = await response.text();
+  // Copy to cache location
+  try {
+    ensureConfigDir();
+    ensureCacheDir();
+    fs.copyFileSync(csvPath, CURSOR_CACHE_FILE);
 
-  // Validate it's actually CSV (handle both old and new formats)
-  // Old: "Date,Model,..."
-  // New: "Date,Kind,Model,..."
-  if (!text.startsWith("Date,")) {
-    throw new Error("Invalid response from Cursor API - expected CSV format");
+    // Count rows for feedback
+    const content = fs.readFileSync(CURSOR_CACHE_FILE, "utf-8");
+    const rows = parseCursorCsv(content);
+    console.log(pc.green(`  Imported ${rows.length} Cursor usage events.`));
+
+    return { synced: true, rows: rows.length };
+  } catch (error) {
+    return { synced: false, rows: 0, error: (error as Error).message };
   }
-
-  return text;
 }
 
 // ============================================================================
@@ -380,74 +501,8 @@ export function cursorRowsToMessages(rows: CursorUsageRow[]): CursorMessageWithT
 }
 
 // ============================================================================
-// High-Level API
+// Cache Management
 // ============================================================================
-
-/**
- * Fetch and parse Cursor usage data
- * Requires valid credentials to be stored
- */
-export async function readCursorUsage(): Promise<{
-  rows: CursorUsageRow[];
-  byModel: CursorUsageData[];
-  messages: CursorMessageWithTimestamp[];
-}> {
-  const credentials = loadCursorCredentials();
-  if (!credentials) {
-    throw new Error("Cursor not authenticated. Run 'vibetracking cursor login' first.");
-  }
-
-  const csvText = await fetchCursorUsageCsv(credentials.sessionToken);
-  const rows = parseCursorCsv(csvText);
-  const byModel = aggregateCursorByModel(rows);
-  const messages = cursorRowsToMessages(rows);
-
-  return { rows, byModel, messages };
-}
-
-/**
- * Get Cursor credentials file path (for debugging)
- */
-export function getCursorCredentialsPath(): string {
-  return CURSOR_CREDENTIALS_FILE;
-}
-
-// ============================================================================
-// Cache Management (for Rust integration)
-// ============================================================================
-
-const CURSOR_CACHE_DIR = path.join(CONFIG_DIR, "cursor-cache");
-const CURSOR_CACHE_FILE = path.join(CURSOR_CACHE_DIR, "usage.csv");
-
-function ensureCacheDir(): void {
-  if (!fs.existsSync(CURSOR_CACHE_DIR)) {
-    fs.mkdirSync(CURSOR_CACHE_DIR, { recursive: true, mode: 0o700 });
-  }
-}
-
-
-/**
- * Sync Cursor usage data from API to local cache
- * This downloads the CSV and saves it for the Rust module to parse
- */
-export async function syncCursorCache(): Promise<{ synced: boolean; rows: number; error?: string }> {
-  const credentials = loadCursorCredentials();
-  if (!credentials) {
-    return { synced: false, rows: 0, error: "Not authenticated" };
-  }
-
-  try {
-    const csvText = await fetchCursorUsageCsv(credentials.sessionToken);
-    ensureCacheDir();
-    fs.writeFileSync(CURSOR_CACHE_FILE, csvText, { encoding: "utf-8", mode: 0o600 });
-
-    // Count rows for feedback
-    const rows = parseCursorCsv(csvText);
-    return { synced: true, rows: rows.length };
-  } catch (error) {
-    return { synced: false, rows: 0, error: (error as Error).message };
-  }
-}
 
 /**
  * Get the cache file path
@@ -475,23 +530,9 @@ export function getCursorCacheStatus(): { exists: boolean; lastModified?: Date; 
   return { exists, lastModified, path: CURSOR_CACHE_FILE };
 }
 
-export interface CursorUnifiedMessage {
-  source: "cursor";
-  modelId: string;
-  providerId: string;
-  sessionId: string;
-  timestamp: number;
-  date: string;
-  tokens: {
-    input: number;
-    output: number;
-    cacheRead: number;
-    cacheWrite: number;
-    reasoning: number;
-  };
-  cost: number;
-}
-
+/**
+ * Read cached Cursor messages for Rust module integration
+ */
 export function readCursorMessagesFromCache(): CursorUnifiedMessage[] {
   if (!fs.existsSync(CURSOR_CACHE_FILE)) {
     return [];

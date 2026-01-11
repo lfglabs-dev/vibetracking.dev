@@ -436,29 +436,29 @@ E2E tests use Playwright MCP tools. Credentials from Bitwarden when needed.
 
 ```bash
 vibetracking                   # Scan data and open browser to import
-vibetracking cursor login      # Login to Cursor (paste session token)
-vibetracking cursor logout     # Logout from Cursor
-vibetracking cursor status     # Check Cursor authentication status
 ```
 
 ### How It Works
 
 1. Run `vibetracking` in your terminal
-2. CLI scans local AI tool data (Claude Code, Codex, Gemini, Amp, Droid)
-3. If Cursor credentials exist, fetches Cursor usage data
+2. If Cursor is installed, opens browser to download usage CSV from cursor.com
+3. CLI scans local AI tool data (Claude Code, Codex, Gemini, Amp, Droid)
 4. Opens browser to `/import#encoded_data`
 5. User logs in with GitHub (if needed) and confirms import
 
 ### Cursor Integration
 
-Cursor usage data is synced via API (requires session token):
+Cursor usage data is imported via browser download:
+
+1. CLI detects Cursor installation
+2. Opens browser to `cursor.com/api/dashboard/export-usage-events-csv`
+3. CSV downloads automatically (user must be logged into Cursor in browser)
+4. CLI detects the download and imports it
+5. If auto-detection fails, user can drag-drop the CSV file
 
 ```bash
-# Login to Cursor (opens browser, prompts for token)
-vibetracking cursor login
-
-# Credentials stored in ~/.vibetracking/cursor-credentials.json
-# Format: { "sessionToken": "eyJ...", "createdAt": "..." }
+# Cache location for Cursor data
+~/.vibetracking/cursor-cache/usage.csv
 ```
 
 ---
