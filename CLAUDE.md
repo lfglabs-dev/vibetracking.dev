@@ -42,6 +42,32 @@ The app presents user statistics in an engaging, gamified interface with:
 
 ---
 
+## CLI Origin & Development Philosophy
+
+> **IMPORTANT: The CLI is based on [tokscale](https://github.com/junhoyeo/tokscale) and we aim to keep it that way.**
+
+The native CLI (`packages/cli/` and `packages/core/`) is derived from the [tokscale project](https://github.com/junhoyeo/tokscale/commits/main/) by [@junhoyeo](https://github.com/junhoyeo). Our strategy is to:
+
+1. **Minimize CLI changes** - Make as few modifications to the core CLI as possible
+2. **Focus on the frontend** - Our value-add is the web application, UI/UX, and viral features
+3. **Stay upstream-compatible** - Keep the CLI architecture aligned with tokscale for easier merging of improvements
+
+### What this means in practice:
+
+- **DO NOT** refactor or restructure the CLI/core packages unless absolutely necessary
+- **DO NOT** change the data formats or parsing logic without strong justification
+- **PREFER** fixing bugs upstream in tokscale when possible
+- **KEEP** changes to `packages/cli/` and `packages/core/` minimal and well-documented
+- **FOCUS** development effort on `src/` (the Next.js web app)
+
+### When CLI changes ARE acceptable:
+
+- Bug fixes that can't wait for upstream
+- Adding support for new AI tools (following existing patterns)
+- Integration changes needed for vibetracking.dev specifically (auth, submission)
+
+---
+
 ## Architecture Overview
 
 ### Monorepo Structure
