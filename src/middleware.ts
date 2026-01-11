@@ -7,8 +7,10 @@ const RESERVED_PATHS = [
   "auth",
   "battle",
   "import",
+  "opengraph-image",
   "og",
   "test",
+  "twitter-image",
   "user",
   "_next",
 ];

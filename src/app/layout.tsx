@@ -11,7 +11,7 @@ const rubik = Rubik({
 export const metadata: Metadata = {
   title: "Vibetracking - Track your AI coding vibes",
   description: "See your AI coding tool usage stats and compete on the leaderboard",
-  metadataBase: new URL("https://vibetracking.dev"),
+  metadataBase: new URL("https://www.vibetracking.dev"),
   openGraph: {
     title: "Vibetracking",
     description: "Track your AI coding vibes",
