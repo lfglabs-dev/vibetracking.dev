@@ -19,7 +19,7 @@ import path from "path";
 // Binary Download Configuration
 // =============================================================================
 
-const BINARY_VERSION = "0.2.1";
+const BINARY_VERSION = "0.2.0";
 const GITHUB_REPO = "lfglabs-dev/vibetracking.dev";
 const GITHUB_RELEASE_URL = `https://github.com/${GITHUB_REPO}/releases/download`;
 
