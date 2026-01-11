@@ -11,6 +11,7 @@ import type {
   SourceType,
 } from "./graph-types.js";
 import { createRequire } from "module";
+import pc from "picocolors";
 import { existsSync, mkdirSync, writeFileSync, chmodSync } from "fs";
 import { homedir } from "os";
 import path from "path";
@@ -54,8 +55,11 @@ async function downloadBinary(destPath: string): Promise<void> {
   const binaryName = getPlatformBinaryName();
   const url = `${GITHUB_RELEASE_URL}/cli-v${BINARY_VERSION}/${binaryName}`;
 
-  console.log(`\n  Downloading native binary...`);
-  console.log(`  ${url}\n`);
+  // Shorten URL for display: just show the release tag and filename
+  const shortUrl = `github.com/.../cli-v${BINARY_VERSION}/${binaryName}`;
+
+  console.log(pc.magenta(`\n  📦 Grabbing the goods from GitHub...`));
+  console.log(pc.gray(`     ${shortUrl}\n`));
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -75,7 +79,7 @@ async function downloadBinary(destPath: string): Promise<void> {
     chmodSync(destPath, 0o755);
   }
 
-  console.log(`  Binary installed to ${destPath}\n`);
+  console.log(pc.green(`  ✅ Ready to vibe!\n`));
 }
 
 async function ensureBinaryExists(): Promise<string> {

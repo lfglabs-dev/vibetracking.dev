@@ -197,7 +197,7 @@ async function openBrowserWithData(inviterUsername?: string) {
   // Clean inviter username (strip @ prefix if present)
   const inviter = inviterUsername?.replace(/^@/, "");
 
-  console.log(pc.cyan("\n  Vibetracking\n"));
+  console.log(pc.magenta("\n  ✨ Vibetracking\n"));
 
   if (inviter) {
     console.log(pc.magenta(`  Accepting challenge from @${inviter}\n`));
@@ -216,8 +216,8 @@ async function openBrowserWithData(inviterUsername?: string) {
     process.exit(1);
   }
 
-  const spinner = createSpinner({ color: "cyan" });
-  spinner.start(pc.gray("Scanning AI coding tool data..."));
+  const spinner = createSpinner({ color: "magenta" });
+  spinner.start(pc.gray("Scanning your AI coding adventures..."));
 
   const allSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'cursor', 'amp', 'droid'];
   const localSources = allSources.filter(s => s !== 'cursor');
@@ -230,7 +230,7 @@ async function openBrowserWithData(inviterUsername?: string) {
   const hasCursorData = includeCursor && cursorSync.synced && cursorSync.rows > 0;
 
   if (!hasLocalData && !hasCursorData) {
-    spinner.error("No AI coding tool data found on this machine.");
+    spinner.error("No AI coding adventures found yet!");
     console.log(pc.gray("\n  Supported tools:"));
     console.log(pc.gray("  - Claude Code (~/.claude/projects/)"));
     console.log(pc.gray("  - Codex (~/.codex/)"));
@@ -242,7 +242,7 @@ async function openBrowserWithData(inviterUsername?: string) {
     process.exit(1);
   }
 
-  spinner.update(pc.gray("Building data export..."));
+  spinner.update(pc.gray("Crunching the numbers..."));
 
   // Get graph data for encoding
   // Use empty ParsedMessages if no local data (Cursor-only scenario)
@@ -269,9 +269,9 @@ async function openBrowserWithData(inviterUsername?: string) {
   const totalCost = graphData.summary.totalCost;
   const sources = graphData.summary.sources;
 
-  console.log(pc.white(`  Found ${formatNumber(totalTokens)} tokens from ${sources.length} tool${sources.length > 1 ? "s" : ""}`));
-  console.log(pc.gray(`  Estimated cost: ${pc.green(formatCurrency(totalCost))}`));
-  console.log(pc.gray(`  Sources: ${sources.join(", ")}`));
+  console.log(pc.yellow(`  🎉 Found ${formatNumber(totalTokens)} tokens from ${sources.length} tool${sources.length > 1 ? "s" : ""}`));
+  console.log(pc.gray(`     You've mass-vibed ${pc.green(formatCurrency(totalCost))} on AI coding!`));
+  console.log(pc.gray(`     Tools: ${sources.join(" · ")}`));
   console.log();
 
   // Encode data and open browser
@@ -285,8 +285,8 @@ async function openBrowserWithData(inviterUsername?: string) {
   }
   url += `#${encoded}`;
 
-  console.log(pc.white("  Opening browser to import your data..."));
-  console.log(pc.gray(`  ${url.slice(0, 60)}...\n`));
+  console.log(pc.cyan(`  🚀 Let's see your stats!`));
+  console.log(pc.gray(`     vibetracking.dev/import#...\n`));
 
   await open(url);
 }
