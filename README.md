@@ -338,7 +338,7 @@ bun run build
 npm publish
 ```
 
-The core native module is published as `@vibetracking/core`:
+The core native module is published as `@starknetid/vibetracking-core`:
 
 ```bash
 cd packages/core
