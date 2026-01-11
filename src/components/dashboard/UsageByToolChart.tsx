@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { LineChart, ChartCard, TOOL_COLORS, TOOL_LABELS } from "@/components/ui/charts";
 import { formatNumber, formatCurrency } from "@/lib/utils";
-import { estimateApiSpendUsd } from "@/lib/pricing";
 import type { DisplayUnit } from "./UnitToggle";
 import { TimeframeSelector, type Timeframe } from "./TimeframeSelector";
 
@@ -11,6 +10,7 @@ interface DailyActivity {
   date: string;
   tool: string;
   totalTokens: number;
+  cost: number;
 }
 
 interface UsageByToolChartProps {
@@ -40,7 +40,7 @@ function aggregateData(
 ): DailyActivity[] {
   if (granularity === "daily") return data;
 
-  const aggregated = new Map<string, Map<string, number>>();
+  const aggregated = new Map<string, Map<string, { tokens: number; cost: number }>>();
 
   data.forEach((item) => {
     const date = new Date(item.date);
@@ -61,13 +61,17 @@ function aggregateData(
       aggregated.set(key, new Map());
     }
     const toolMap = aggregated.get(key)!;
-    toolMap.set(item.tool, (toolMap.get(item.tool) || 0) + item.totalTokens);
+    const existing = toolMap.get(item.tool) || { tokens: 0, cost: 0 };
+    toolMap.set(item.tool, {
+      tokens: existing.tokens + item.totalTokens,
+      cost: existing.cost + item.cost,
+    });
   });
 
   const result: DailyActivity[] = [];
   aggregated.forEach((toolMap, date) => {
-    toolMap.forEach((tokens, tool) => {
-      result.push({ date, tool, totalTokens: tokens });
+    toolMap.forEach((data, tool) => {
+      result.push({ date, tool, totalTokens: data.tokens, cost: data.cost });
     });
   });
 
@@ -115,7 +119,8 @@ export function UsageByToolChart({ dailyActivity, unit }: UsageByToolChartProps)
     const entry = dateMap.get(item.date)!;
 
     if (unit === "usd") {
-      entry[item.tool] = estimateApiSpendUsd({ totalTokens: item.totalTokens });
+      // Use actual cost from database instead of estimating
+      entry[item.tool] = item.cost;
     } else {
       entry[item.tool] = item.totalTokens;
     }
