@@ -323,19 +323,15 @@ export function ProfilePage({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="card text-center">
                 <div className="text-3xl font-black text-[#D63384]">
-                  {displayUnit === "usd"
-                    ? formatCurrency(estimatedApiSpend)
-                    : formatNumber(stats.totalTokens)}
+                  {formatCurrency(estimatedApiSpend)}
                 </div>
-                <div className="text-sm text-[#232323]/60">
-                  {displayUnit === "usd" ? "Est. API Spend" : "Total Tokens"}
-                </div>
+                <div className="text-sm text-[#232323]/60">Est. API Spend</div>
               </div>
               <div className="card text-center">
                 <div className="text-3xl font-black text-[#0D6EFD]">
-                  {formatNumber(stats.totalSessions)}
+                  {formatNumber(stats.totalTokens)}
                 </div>
-                <div className="text-sm text-[#232323]/60">Sessions</div>
+                <div className="text-sm text-[#232323]/60">Total Tokens</div>
               </div>
               <div className="card text-center">
                 <div className="text-3xl font-black text-[#198754] text-base leading-tight">

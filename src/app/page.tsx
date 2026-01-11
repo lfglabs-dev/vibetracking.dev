@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
 import { CTABox } from '@/components/home/CTABox'
 import { HomeStickers } from '@/components/home/HomeStickers'
-import { estimateApiSpendUsd } from '@/lib/pricing'
 import { Logo } from '@/components/shared/Logo'
 import Link from 'next/link'
 
@@ -19,6 +18,7 @@ interface LeaderboardRow {
   user_id: string
   total_tokens: number
   total_sessions: number
+  total_cost: number
   current_streak_days: number
   favorite_model: string | null
   users: UserData[]
@@ -39,7 +39,7 @@ interface LeaderboardEntry {
   profileUrl: string
 }
 
-type LeaderboardSeed = Omit<LeaderboardEntry, 'estimatedSpend'>
+type LeaderboardSeed = LeaderboardEntry
 
 // Mock data for testing the leaderboard UI
 const MOCK_LEADERBOARD: LeaderboardSeed[] = [
@@ -54,6 +54,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 1247,
     currentStreak: 42,
+    estimatedSpend: 2850,
     profileUrl: '/@sarah_codes',
   },
   {
@@ -67,6 +68,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'claude-opus-4-20250514',
     totalSessions: 982,
     currentStreak: 28,
+    estimatedSpend: 2340,
     profileUrl: '/@alex_dev',
   },
   {
@@ -80,6 +82,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 756,
     currentStreak: 35,
+    estimatedSpend: 1890,
     profileUrl: '/@maya_builds',
   },
   {
@@ -93,6 +96,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'gpt-4o',
     totalSessions: 621,
     currentStreak: 21,
+    estimatedSpend: 1560,
     profileUrl: '/@kevin_hacks',
   },
   {
@@ -106,6 +110,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 543,
     currentStreak: 19,
+    estimatedSpend: 1280,
     profileUrl: '/@emma_codes',
   },
   {
@@ -119,6 +124,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 489,
     currentStreak: 12,
+    estimatedSpend: 1120,
     profileUrl: '/@james_dev',
   },
   {
@@ -132,6 +138,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 412,
     currentStreak: 7,
+    estimatedSpend: 890,
     profileUrl: '/@lisa_builds',
   },
   {
@@ -145,6 +152,7 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     favoriteModel: 'claude-opus-4-20250514',
     totalSessions: 356,
     currentStreak: 5,
+    estimatedSpend: 720,
     profileUrl: '/@mike_codes',
   },
 ]
@@ -171,6 +179,7 @@ export default async function Home() {
       user_id,
       total_tokens,
       total_sessions,
+      total_cost,
       current_streak_days,
       favorite_model,
       users!inner (
@@ -182,11 +191,11 @@ export default async function Home() {
       )
     `
     )
-    .order('total_tokens', { ascending: false })
+    .order('total_cost', { ascending: false })
     .limit(50)
 
-  // Transform leaderboard data
-  const dbEntries: LeaderboardSeed[] =
+  // Transform leaderboard data - use total_cost directly from database
+  const dbEntries: LeaderboardEntry[] =
     (leaderboard as unknown as LeaderboardRow[])?.map((entry, index) => {
       // Supabase !inner join returns a single object, not an array
       const userData = Array.isArray(entry.users) ? entry.users[0] : entry.users
@@ -203,27 +212,14 @@ export default async function Home() {
         totalSessions: entry.total_sessions,
         currentStreak: entry.current_streak_days,
         favoriteModel: entry.favorite_model,
+        estimatedSpend: entry.total_cost,
         profileUrl: `/@${userData.username}`,
       }
-    }).filter((entry): entry is LeaderboardSeed => entry !== null) || []
+    }).filter((entry): entry is LeaderboardEntry => entry !== null) || []
 
-  // Use mock data if no real data exists
-  const rawEntries: LeaderboardSeed[] =
+  // Use mock data if no real data exists, already sorted by estimatedSpend (total_cost)
+  const entries: LeaderboardEntry[] =
     dbEntries.length > 0 ? dbEntries : MOCK_LEADERBOARD
-
-  const entries: LeaderboardEntry[] = rawEntries
-    .map((entry) => ({
-      ...entry,
-      estimatedSpend: estimateApiSpendUsd({
-        model: entry.favoriteModel,
-        totalTokens: entry.totalTokens,
-      }),
-    }))
-    .sort((a, b) => b.estimatedSpend - a.estimatedSpend)
-    .map((entry, index) => ({
-      ...entry,
-      rank: index + 1,
-    }))
 
   return (
     <div className="min-h-screen py-8 px-4">

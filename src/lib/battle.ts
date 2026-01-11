@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { type BattleStats, isValidTrashTalkId, calculateEstimatedSpend } from "@/lib/challenges";
-import { estimateApiSpendUsd } from "@/lib/pricing";
+import { type BattleStats, isValidTrashTalkId } from "@/lib/challenges";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,7 +56,7 @@ export async function getUserBattleStats(
     return null;
   }
 
-  // Get user stats
+  // Get user stats (including total_cost for consistent spend display)
   const { data: stats, error: statsError } = await supabase
     .from("user_stats")
     .select("*")
@@ -68,16 +67,8 @@ export async function getUserBattleStats(
     return null;
   }
 
-  // Get token usage for spend calculation
-  const { data: tokenUsage } = await supabase
-    .from("token_usage")
-    .select("model, input_tokens, output_tokens")
-    .eq("user_id", userId);
-
-  // Calculate estimated spend by summing up per-model costs
-  const estimatedSpend = tokenUsage
-    ? calculateEstimatedSpend(tokenUsage, estimateApiSpendUsd)
-    : 0;
+  // Use total_cost directly from database for consistent spend across all pages
+  const estimatedSpend = stats.total_cost || 0;
 
   // Calculate active days from daily_activity
   const { data: dailyActivity } = await supabase
