@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { formatCompactNumber, type BattleStats } from "@/lib/challenges";
 import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
 
@@ -30,6 +30,18 @@ const pageStickers = [
 
 export function InvitePage({ challenger }: InvitePageProps) {
   const challengerName = challenger.displayName || challenger.username;
+  const [copied, setCopied] = useState(false);
+  const cliCommand = `bunx vibetracking -i ${challenger.username}`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(cliCommand);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 overflow-hidden">
@@ -110,27 +122,48 @@ export function InvitePage({ challenger }: InvitePageProps) {
           {/* CTA for visitors */}
           <div className="text-center">
             <p className="text-sm text-[#232323]/60 mb-4">
-              Import your stats and see who wins!
+              Run this in your terminal to accept the challenge:
             </p>
-            <Link
-              href={`/import?challenge=${challenger.username}`}
-              className="inline-flex items-center gap-2 bg-[#198754] text-white px-6 py-3 rounded-lg border-2 border-[#232323] hover:bg-[#198754]/90 transition-colors font-bold text-lg"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              Accept Challenge
-            </Link>
+
+            {/* Terminal Command Box */}
+            <div className="bg-[#1a1a2e] rounded-lg border-2 border-[#232323] overflow-hidden mb-4">
+              <div className="flex items-center justify-between px-4 py-2 bg-[#232323]/50 border-b border-[#232323]/30">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+                  <div className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+                  <div className="w-3 h-3 rounded-full bg-[#27ca3f]" />
+                </div>
+                <span className="text-xs text-white/50">terminal</span>
+              </div>
+              <div className="p-4 flex items-center justify-between gap-3">
+                <code className="text-[#AAE7C0] font-mono text-sm sm:text-base">
+                  {cliCommand}
+                </code>
+                <button
+                  onClick={handleCopy}
+                  className={`flex-shrink-0 p-2 rounded-lg transition-all ${
+                    copied
+                      ? "bg-[#198754] text-white"
+                      : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                  }`}
+                  title="Copy to clipboard"
+                >
+                  {copied ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#232323]/50">
+              Requires <a href="https://bun.sh" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#232323]/70">Bun</a> installed
+            </p>
           </div>
 
         </div>
