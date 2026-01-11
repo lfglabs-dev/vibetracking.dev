@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry run (skip npm publish)'
+        description: 'Dry run (skip GitHub release upload)'
         required: false
         default: false
         type: boolean
@@ -27,7 +27,6 @@ env:
 
 permissions:
   contents: write
-  id-token: write
   actions: read
 
 jobs:
@@ -134,8 +133,8 @@ jobs:
           path: packages/core/*.node
           if-no-files-found: error
 
-  publish:
-    name: Publish to npm
+  upload-release:
+    name: Upload to GitHub Release
     runs-on: ubuntu-latest
     needs:
       - build
@@ -145,77 +144,60 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: bun install
-
       - name: Download artifacts from current run
         if: ${{ github.event.inputs.skip_build != 'true' }}
         uses: actions/download-artifact@v4
         with:
-          path: packages/core/artifacts
+          path: artifacts
+          pattern: bindings-*
+          merge-multiple: true
 
       - name: Download artifacts from previous run
         if: ${{ github.event.inputs.skip_build == 'true' }}
         uses: actions/download-artifact@v4
         with:
-          path: packages/core/artifacts
+          path: artifacts
+          pattern: bindings-*
+          merge-multiple: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.inputs.run_id }}
 
-      - name: Move artifacts
-        run: bun x @napi-rs/cli artifacts
-        working-directory: packages/core
+      - name: List artifacts
+        run: ls -la artifacts/
 
-      - name: List packages
-        run: ls -la npm/ || echo "No npm directory"
-        working-directory: packages/core
-
-      - name: Update npm (required for OIDC)
-        run: npm install -g npm@latest
-
-      - name: Publish platform packages
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+      - name: Get tag name
+        id: tag
         run: |
-          for dir in npm/*/; do
-            if [ -d "$dir" ]; then
-              echo "Publishing $dir"
-              (cd "$dir" && npm publish --access public)
-            fi
-          done
-        working-directory: packages/core
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            # For manual runs, use the version from package.json
+            VERSION=$(jq -r .version packages/cli/package.json)
+            echo "name=cli-v${VERSION}" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Publish @starknetid/vibetracking-core
+      - name: Create or update GitHub Release
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: npm publish --access public
-        working-directory: packages/core
-
-      - name: Build CLI
-        run: bun run build
-        working-directory: packages/cli
-
-      - name: Publish vibetracking CLI
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: npm publish --access public
-        working-directory: packages/cli
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: CLI ${{ steps.tag.outputs.name }}
+          files: artifacts/*.node
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Summary
         run: |
-          echo "## Published Packages" >> $GITHUB_STEP_SUMMARY
-          echo "- @starknetid/vibetracking-core" >> $GITHUB_STEP_SUMMARY
-          echo "- vibetracking" >> $GITHUB_STEP_SUMMARY
+          echo "## Release ${{ steps.tag.outputs.name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Install" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "bunx vibetracking" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "### Binaries uploaded to GitHub Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          ls -1 artifacts/*.node | while read f; do
+            echo "- $(basename $f)" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Publish CLI to npm locally: \`cd packages/cli && npm publish --access public\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Verify: \`bunx vibetracking@latest --version\`" >> $GITHUB_STEP_SUMMARY

@@ -575,6 +575,33 @@ Cache TTL: 24 hours
 
 ---
 
-## CLI Publishing (npm)
+## CLI Publishing
 
-See the `publish-cli` skill for the full release workflow. Trigger terms: publish, release, npm, cli, version, tag.
+### Hybrid Publishing Model
+
+The CLI uses a hybrid publishing approach:
+
+- **npm**: Only the `vibetracking` CLI package is published (JavaScript wrapper)
+- **GitHub Releases**: Native binaries (`.node` files) are hosted as release assets
+- **First-run download**: CLI automatically downloads the correct binary on first run
+
+This simplifies publishing to just 1 npm package instead of 9 (CLI + core + 7 platform packages).
+
+### How It Works
+
+1. User runs `bunx vibetracking`
+2. CLI checks for binary in `~/.vibetracking/bin/{version}/`
+3. If not found, downloads from GitHub release
+4. Binary is cached for future runs
+
+### Publishing Workflow
+
+1. **Bump version** in `packages/cli/package.json`
+2. **Update BINARY_VERSION** in `packages/cli/src/native.ts` and `native-runner.ts`
+3. **Commit and push** the version change
+4. **Create and push tag**: `git tag cli-vX.Y.Z && git push origin cli-vX.Y.Z`
+5. **Wait for CI** to build and upload binaries to GitHub release
+6. **Publish CLI locally**: `cd packages/cli && pnpm build && npm publish --access public`
+7. **Verify**: `bunx vibetracking@latest --version`
+
+See the `publish-cli` skill for detailed steps. Trigger terms: publish, release, npm, cli, version, tag.
