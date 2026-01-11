@@ -12,6 +12,7 @@ Fast test of the complete onboarding flow using Playwright MCP. Takes ~2-3 minut
 ## Prerequisites
 - Dev server running at http://localhost:3000
 - If not running: `pnpm dev`
+- GitHub test account credentials (from Bitwarden)
 
 ## Test Flow
 
@@ -22,6 +23,11 @@ Generate encoded test data inline (gzip + base64url):
 const data = {
   timestamp: Date.now(),
   version: 1,
+  summary: {
+    totalTokens: 900000,
+    totalCost: 15.50,
+    sources: ["claude_code"]
+  },
   tools: {
     claude_code: {
       tool: "claude_code",
@@ -43,7 +49,7 @@ const data = {
     }
   }
 };
-// Encode: gzip(JSON.stringify(data)) → base64url
+// Encode: gzip(JSON.stringify(data)) -> base64url
 ```
 
 ### Step 2: Navigate to Import Page
@@ -53,25 +59,56 @@ mcp__playwright__browser_snapshot
 ```
 
 **Verify:**
-- [ ] Stats preview shows ~900K tokens
-- [ ] Auth buttons visible
+- [ ] Stats preview shows token data
+- [ ] "Continue with GitHub" button visible
+- [ ] Stickers animate in around the card
 
-### Step 3: Complete Anonymous Registration
+### Step 3: GitHub Authentication
 ```
-mcp__playwright__browser_click: element="Continue without login", ref="[ref]"
-mcp__playwright__browser_type: element="Display Name", ref="[ref]", text="Onboarding Test User"
-mcp__playwright__browser_type: element="Company", ref="[ref]", text="Test Corp"
-mcp__playwright__browser_click: element="Save Profile", ref="[ref]"
-mcp__playwright__browser_wait_for: text="Onboarding Test User"
+mcp__playwright__browser_click: element="Continue with GitHub", ref="[ref]"
+```
+
+**Note:** This will redirect to GitHub OAuth. You'll need test credentials:
+1. Get credentials from Bitwarden (vibetracking test account)
+2. Complete GitHub login
+3. Authorize the app
+4. Wait for redirect back to import page
+
+```
+mcp__playwright__browser_wait_for: text="Save your profile"
 mcp__playwright__browser_snapshot
+```
+
+### Step 4: Complete Profile (First Time Users)
+If this is a first-time user, you'll see a company prompt:
+
+```
+mcp__playwright__browser_type: element="Company", ref="[ref]", text="Test Corp"
+mcp__playwright__browser_click: element="Continue", ref="[ref]"
+```
+
+Or skip the company:
+```
+mcp__playwright__browser_click: element="Skip", ref="[ref]"
 ```
 
 **Verify:**
 - [ ] Redirected to profile page
-- [ ] "Onboarding Test User" displayed
-- [ ] Stats visible
+- [ ] Username displayed correctly
+- [ ] Stats visible on profile
 
-### Step 4: Check Console
+### Step 5: Verify Profile Page
+```
+mcp__playwright__browser_wait_for: text loaded
+mcp__playwright__browser_snapshot
+```
+
+**Verify:**
+- [ ] Profile header shows user info
+- [ ] Token statistics displayed
+- [ ] Activity heatmap visible (if data exists)
+
+### Step 6: Check Console
 ```
 mcp__playwright__browser_console_messages: level="error"
 ```
@@ -79,10 +116,37 @@ mcp__playwright__browser_console_messages: level="error"
 **Verify:**
 - [ ] No JavaScript errors
 
-### Step 5: Screenshot
+### Step 7: Screenshot
 ```
 mcp__playwright__browser_take_screenshot: filename="onboarding-test.png"
 ```
+
+---
+
+## Challenge Flow Test (Optional)
+
+Test the inviter/challenge feature:
+
+### Navigate with Inviter Parameter
+```
+mcp__playwright__browser_navigate: http://localhost:3000/import?inviter=fricoben#[ENCODED_DATA]
+mcp__playwright__browser_snapshot
+```
+
+**Verify:**
+- [ ] Challenge banner visible: "@fricoben challenged your vibe coding skills!"
+- [ ] Banner has gradient styling
+
+### Complete Auth and Check Redirect
+After GitHub auth, verify redirect to battle page:
+```
+mcp__playwright__browser_wait_for: text="vs"
+```
+
+**Verify:**
+- [ ] Redirected to `/battle/@newuser-vs-@fricoben`
+
+---
 
 ## Report
 
@@ -94,10 +158,11 @@ mcp__playwright__browser_take_screenshot: filename="onboarding-test.png"
 | Step | Status |
 |------|--------|
 | Import page loads | |
-| Stats preview correct | |
-| Anonymous form works | |
-| Registration succeeds | |
-| Profile displays | |
+| Stickers animate | |
+| GitHub button visible | |
+| GitHub OAuth works | |
+| Profile redirect | |
+| Stats displayed | |
 | No console errors | |
 
 **Status: PASS / FAIL**

@@ -16,7 +16,6 @@ interface BattleWrappedProps {
   challenger: BattleStats;
   challenged: BattleStats;
   result: BattleResult;
-  battleSlug: string;
 }
 
 const TOTAL_SLIDES = 6;
@@ -25,14 +24,13 @@ export function BattleWrapped({
   challenger,
   challenged,
   result,
-  battleSlug,
 }: BattleWrappedProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [displayUnit, setDisplayUnit] = useState<DisplayUnit>("usd"); // Default to USD
   const { animationKey } = useSlideAnimation({ slideIndex: currentSlide });
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vibetracking.dev";
-  const battleUrl = `${baseUrl}/battle/${battleSlug}`;
+  // Profile URL for the challenger (user who initiated the battle view)
+  const profileUrl = `/@${challenger.username}`;
 
   // Navigation handlers
   const goToPrev = useCallback(() => {
@@ -83,7 +81,7 @@ export function BattleWrapped({
       case 4:
         return <SlideBonus {...props} />;
       case 5:
-        return <SlideFinal {...props} result={result} battleUrl={battleUrl} />;
+        return <SlideFinal {...props} result={result} />;
       default:
         return <SlideTokens {...props} displayUnit={displayUnit} onDisplayUnitChange={setDisplayUnit} />;
     }
@@ -146,6 +144,7 @@ export function BattleWrapped({
             onPrev={goToPrev}
             onNext={goToNext}
             onGoToSlide={goToSlide}
+            profileUrl={profileUrl}
           />
         </div>
       </div>

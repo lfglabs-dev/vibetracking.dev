@@ -7,7 +7,6 @@ interface SlideFinalProps {
   rival: BattleStats;
   result: BattleResult;
   animationKey: number;
-  battleUrl: string;
 }
 
 export function SlideFinal({
@@ -15,7 +14,6 @@ export function SlideFinal({
   rival,
   result,
   animationKey,
-  battleUrl,
 }: SlideFinalProps) {
   const userName = user.displayName || user.username;
   const rivalName = rival.displayName || rival.username;
@@ -43,23 +41,6 @@ export function SlideFinal({
   const rivalRoundsWon = result.statComparisons.filter(
     (s) => s.winner === "challenged"
   ).length;
-
-  const handleShare = () => {
-    const text = isTie
-      ? `It's a tie! ${userName} and ${rivalName} are equally matched in the vibe coding battle! 🎮`
-      : `${winnerName} won the vibe coding battle ${result.challengerScore}-${result.challengedScore}! 🏆`;
-
-    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(battleUrl)}`;
-    window.open(shareUrl, "_blank", "width=550,height=420");
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(battleUrl);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  };
 
   return (
     <div
@@ -165,44 +146,6 @@ export function SlideFinal({
                 {rivalRoundsWon} rounds won
               </p>
             </div>
-          </div>
-
-          {/* Share Buttons */}
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#232323] text-white rounded-lg font-medium hover:bg-[#232323]/80 transition-colors text-sm"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-              Share on X
-            </button>
-
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-[#232323] rounded-lg font-medium hover:bg-[#EEF0F2] transition-colors shadow-[0px_2px_0px_0px_#232323] hover:shadow-[0px_1px_0px_0px_#232323] hover:translate-y-0.5 text-sm"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
-              Copy Link
-            </button>
           </div>
         </div>
       </main>

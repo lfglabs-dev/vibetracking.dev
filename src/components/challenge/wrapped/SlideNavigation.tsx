@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
+
 interface SlideNavigationProps {
   currentSlide: number;
   totalSlides: number;
   onPrev: () => void;
   onNext: () => void;
   onGoToSlide: (index: number) => void;
+  profileUrl?: string;
 }
 
 export function SlideNavigation({
@@ -14,6 +17,7 @@ export function SlideNavigation({
   onPrev,
   onNext,
   onGoToSlide,
+  profileUrl,
 }: SlideNavigationProps) {
   const isFirst = currentSlide === 0;
   const isLast = currentSlide === totalSlides - 1;
@@ -63,31 +67,53 @@ export function SlideNavigation({
         ))}
       </div>
 
-      {/* Next Button */}
-      <button
-        onClick={onNext}
-        disabled={isLast}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg border border-[#232323] transition-all ${
-          isLast
-            ? "opacity-30 cursor-not-allowed bg-[#EEF0F2]"
-            : "bg-[#AAE7C0] hover:translate-y-0.5 shadow-[0px_2px_0px_0px_#232323] hover:shadow-[0px_1px_0px_0px_#232323]"
-        }`}
-        aria-label="Next slide"
-      >
-        <span className="font-medium hidden sm:inline">Next</span>
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {/* Next Button / See Profile Link */}
+      {isLast && profileUrl ? (
+        <Link
+          href={profileUrl}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#232323] transition-all bg-[#AAE7C0] hover:translate-y-0.5 shadow-[0px_2px_0px_0px_#232323] hover:shadow-[0px_1px_0px_0px_#232323]"
+          aria-label="See your profile"
         >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </button>
+          <span className="font-medium">See your profile</span>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </Link>
+      ) : (
+        <button
+          onClick={onNext}
+          disabled={isLast}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border border-[#232323] transition-all ${
+            isLast
+              ? "opacity-30 cursor-not-allowed bg-[#EEF0F2]"
+              : "bg-[#AAE7C0] hover:translate-y-0.5 shadow-[0px_2px_0px_0px_#232323] hover:shadow-[0px_1px_0px_0px_#232323]"
+          }`}
+          aria-label="Next slide"
+        >
+          <span className="font-medium hidden sm:inline">Next</span>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

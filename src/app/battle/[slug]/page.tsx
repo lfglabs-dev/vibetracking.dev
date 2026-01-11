@@ -106,7 +106,6 @@ export default async function BattlePage({ params, searchParams }: PageProps) {
         challenger={challengerStats}
         challenged={challengedStats}
         result={result}
-        battleSlug={slug}
       />
     </>
   );

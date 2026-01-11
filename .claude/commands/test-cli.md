@@ -41,74 +41,19 @@ cd packages/cli && bun run --conditions=browser src/cli.ts
 - Shows token count and estimated cost
 - Opens browser to `vibetracking.dev/import#[encoded_data]`
 
-### Test 2: Models Report
+### Test 2: Challenge Flow (--inviter flag)
 
-Shows usage breakdown by model:
-
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts models
-```
-
-Options:
-- `--today` - Today only
-- `--week` - Last 7 days
-- `--month` - Current month
-- `--year 2024` - Specific year
-- `--json` - Output as JSON
-- `--benchmark` - Show processing time
-
-### Test 3: Monthly Report
-
-Shows monthly breakdown:
+Test the challenge invitation feature:
 
 ```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts monthly
+cd packages/cli && bun run --conditions=browser src/cli.ts --inviter fricoben
+# or short form:
+cd packages/cli && bun run --conditions=browser src/cli.ts -i fricoben
 ```
 
-### Test 4: Graph Export
-
-Export contribution graph data as JSON:
-
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts graph --output graph.json
-```
-
-### Test 5: Wrapped Image Generation
-
-Generate a year-in-review image:
-
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts wrapped
-```
-
-Options:
-- `--year 2024` - Specific year
-- `--output my-wrapped.png` - Custom filename
-- `--short` - Abbreviated token numbers
-- `--clients` - Show clients instead of agents
-
-### Test 6: Sync Command
-
-Sync data to vibetracking.dev (requires prior authentication):
-
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts sync
-```
-
-Options:
-- `--quiet` - Minimal output for background syncing
-
-### Test 7: Pricing Lookup
-
-Look up model pricing:
-
-```bash
-cd packages/cli && bun run --conditions=browser src/cli.ts pricing claude-sonnet-4-20250514
-```
-
-Options:
-- `--json` - Output as JSON
-- `--provider litellm` - Force specific pricing source
+**Expected behavior:**
+- Shows "Accepting challenge from @fricoben"
+- Opens browser to `vibetracking.dev/import?inviter=fricoben#[encoded_data]`
 
 ---
 
@@ -121,7 +66,7 @@ cd packages/cli && bun run --conditions=browser src/cli.ts cursor login
 ```
 
 You'll need to:
-1. Open https://www.cursor.com/settings
+1. Open https://www.cursor.com/dashboard
 2. Open DevTools > Network tab
 3. Find any request to cursor.com/api
 4. Copy the `WorkosCursorSessionToken` cookie value
@@ -140,22 +85,18 @@ cd packages/cli && bun run --conditions=browser src/cli.ts cursor logout
 
 ---
 
-## Step 4: Filter by Source
+## Step 4: First-Run Cursor Prompt
 
-All commands support source filtering:
+If Cursor is installed but not logged in, the CLI will prompt:
 
 ```bash
-# Only Claude Code data
-cd packages/cli && bun run --conditions=browser src/cli.ts models --claude
-
-# Only Cursor data
-cd packages/cli && bun run --conditions=browser src/cli.ts models --cursor
-
-# Multiple sources
-cd packages/cli && bun run --conditions=browser src/cli.ts models --claude --codex
+cd packages/cli && bun run --conditions=browser src/cli.ts
 ```
 
-Available filters: `--opencode`, `--claude`, `--codex`, `--gemini`, `--cursor`, `--amp`, `--droid`
+**Expected behavior:**
+- Detects Cursor installation
+- Asks "Would you like to include your Cursor usage data? (y/n)"
+- If yes, opens browser and prompts for token
 
 ---
 
@@ -170,18 +111,18 @@ pnpm dev
 ### Test Full Import Flow
 
 ```bash
-# Set local API URL
 VIBETRACKING_API_URL=http://localhost:3000 cd packages/cli && bun run --conditions=browser src/cli.ts
 ```
 
 1. Browser opens to `http://localhost:3000/import#[data]`
-2. Complete registration
-3. Verify profile shows correct stats
+2. Login with GitHub
+3. Complete company field (if first time)
+4. Verify profile shows correct stats
 
-### Test Sync Flow
+### Test Challenge Flow Locally
 
 ```bash
-VIBETRACKING_API_URL=http://localhost:3000 cd packages/cli && bun run --conditions=browser src/cli.ts sync
+VIBETRACKING_API_URL=http://localhost:3000 cd packages/cli && bun run --conditions=browser src/cli.ts -i testuser
 ```
 
 ---
@@ -191,17 +132,11 @@ VIBETRACKING_API_URL=http://localhost:3000 cd packages/cli && bun run --conditio
 | Test | Command | Expected |
 |------|---------|----------|
 | Default (browser) | `src/cli.ts` | Shows stats, opens browser |
-| Models report | `src/cli.ts models` | Table with token breakdown |
-| Monthly report | `src/cli.ts monthly` | Monthly table |
-| Graph export | `src/cli.ts graph --output g.json` | JSON file created |
-| Wrapped | `src/cli.ts wrapped` | PNG image created |
-| Pricing | `src/cli.ts pricing claude-sonnet-4-20250514` | Shows pricing info |
+| Inviter flag | `src/cli.ts -i username` | Adds inviter param to URL |
 | Cursor login | `src/cli.ts cursor login` | Prompts for token |
 | Cursor status | `src/cli.ts cursor status` | Shows auth status |
-| JSON output | `src/cli.ts models --json` | JSON to stdout |
-| Date filter | `src/cli.ts models --today` | Today's data only |
-| Source filter | `src/cli.ts models --claude` | Claude data only |
-| Sync | `src/cli.ts sync` | Syncs to server |
+| Cursor logout | `src/cli.ts cursor logout` | Clears credentials |
+| First-run prompt | (with Cursor installed) | Prompts for Cursor setup |
 
 ---
 
@@ -216,8 +151,8 @@ The CLI scans these locations:
 | OpenCode | `~/.local/share/opencode/` |
 | Gemini | `~/.gemini/` |
 | Cursor | Via API (requires login) |
-| Amp | `~/.amp/` |
-| Droid | `~/.droid/` |
+| Amp | `~/.ampcode/sessions/` |
+| Droid | `~/Library/.../googleAiStudio/history/` |
 
 ---
 
@@ -225,11 +160,10 @@ The CLI scans these locations:
 
 | File | Purpose |
 |------|---------|
-| `~/.vibetracking/credentials.json` | Vibetracking auth token |
 | `~/.vibetracking/cursor-credentials.json` | Cursor session token |
 | `~/.vibetracking/cursor-cache/usage.csv` | Cached Cursor data |
-| `~/.cache/vibetracking/images/` | Cached logos for wrapped |
-| `~/.cache/vibetracking/fonts/` | Cached fonts for wrapped |
+| `~/.cache/vibetracking/pricing-litellm.json` | Cached LiteLLM pricing |
+| `~/.cache/vibetracking/pricing-openrouter.json` | Cached OpenRouter pricing |
 
 ---
 
@@ -247,10 +181,6 @@ The CLI scans these locations:
 - URL is printed to console, open manually
 - Check if `open` package is installed
 
-### "Sync failed: Not authenticated"
-- Run `vibetracking` first to authenticate via browser
-- Credentials saved to `~/.vibetracking/credentials.json`
-
 ### Import page shows "Invalid data"
 - Data encoding issue - check CLI output for errors
-- Try `--json` flag to see raw data structure
+- Try running CLI again to regenerate data

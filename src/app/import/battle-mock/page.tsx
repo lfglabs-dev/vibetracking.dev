@@ -52,7 +52,6 @@ export default function MockBattlePage() {
       challenger={mockChallenger}
       challenged={mockChallenged}
       result={result}
-      battleSlug="mock-battle-test"
     />
   );
 }
