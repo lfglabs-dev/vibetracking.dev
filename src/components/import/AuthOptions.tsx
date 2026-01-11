@@ -13,11 +13,16 @@ export const IMPORT_DATA_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 export interface StoredImportData {
   data: string;
   timestamp: number;
+  inviter?: string;
 }
 
 export function AuthOptions({ isLoading }: AuthOptionsProps) {
   const handleGitHubLogin = async () => {
     const supabase = createClient();
+
+    // Get inviter from URL query param
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviter = urlParams.get("inviter");
 
     // Store the hash data in localStorage with timestamp before redirecting
     // Using localStorage instead of sessionStorage to survive OAuth redirects
@@ -25,14 +30,18 @@ export function AuthOptions({ isLoading }: AuthOptionsProps) {
       const storedData: StoredImportData = {
         data: window.location.hash.slice(1),
         timestamp: Date.now(),
+        inviter: inviter || undefined,
       };
       localStorage.setItem(IMPORT_DATA_KEY, JSON.stringify(storedData));
     }
 
+    // Build the redirect URL, preserving inviter if present
+    const nextUrl = inviter ? `/import?inviter=${encodeURIComponent(inviter)}` : "/import";
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/import")}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
       },
     });
 

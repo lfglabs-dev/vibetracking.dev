@@ -42,13 +42,20 @@ function ImportPageContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [needsCompany, setNeedsCompany] = useState(false);
   const [company, setCompany] = useState("");
+  const [inviter, setInviter] = useState<string | null>(null);
+  const [inviterValid, setInviterValid] = useState(false);
 
   useEffect(() => {
     const initialize = async () => {
       // Get data from hash or localStorage first
       let encodedData: string | null = null;
+      let inviterUsername: string | null = null;
 
       if (typeof window !== "undefined") {
+        // Get inviter from URL query param
+        const urlParams = new URLSearchParams(window.location.search);
+        inviterUsername = urlParams.get("inviter");
+
         // First try hash (fresh from CLI)
         if (window.location.hash && window.location.hash.length > 1) {
           encodedData = window.location.hash.slice(1);
@@ -56,6 +63,7 @@ function ImportPageContent() {
           const storedData: StoredImportData = {
             data: encodedData,
             timestamp: Date.now(),
+            inviter: inviterUsername || undefined,
           };
           localStorage.setItem(IMPORT_DATA_KEY, JSON.stringify(storedData));
         }
@@ -65,9 +73,14 @@ function ImportPageContent() {
           if (stored) {
             try {
               const parsed: StoredImportData = JSON.parse(stored);
+              const ageMs = Date.now() - parsed.timestamp;
               // Check if data is not expired (1 hour)
-              if (Date.now() - parsed.timestamp < IMPORT_DATA_EXPIRY_MS) {
+              if (ageMs < IMPORT_DATA_EXPIRY_MS) {
                 encodedData = parsed.data;
+                // Recover inviter from localStorage if not in URL
+                if (!inviterUsername && parsed.inviter) {
+                  inviterUsername = parsed.inviter;
+                }
               } else {
                 // Data expired, clean up
                 localStorage.removeItem(IMPORT_DATA_KEY);
@@ -98,6 +111,20 @@ function ImportPageContent() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
+      // Validate inviter if present
+      if (inviterUsername) {
+        setInviter(inviterUsername);
+        const { data: inviterUser } = await supabase
+          .from("users")
+          .select("username")
+          .eq("username", inviterUsername)
+          .single();
+
+        if (inviterUser) {
+          setInviterValid(true);
+        }
+      }
 
       if (user) {
         setIsAuthenticated(true);
@@ -144,7 +171,14 @@ function ImportPageContent() {
       localStorage.removeItem(IMPORT_DATA_KEY);
 
       const result = await response.json();
-      router.push(result.profileUrl);
+
+      // Redirect to battle page if inviter was valid
+      if (inviter && inviterValid) {
+        const newUsername = result.profileUrl.replace(/^\/@/, "");
+        router.push(`/battle/@${newUsername}-vs-@${inviter}`);
+      } else {
+        router.push(result.profileUrl);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
       setIsLoading(false);
@@ -225,6 +259,14 @@ function ImportPageContent() {
               You&apos;re almost there...
             </p>
           </div>
+
+          {/* Challenge Banner */}
+          {inviter && inviterValid && (
+            <div className="bg-gradient-to-r from-[#FEA6CC] to-[#AAE7C0] text-[#232323] text-center py-4 px-6 rounded-xl mb-6 font-bold text-lg shadow-lg">
+              <span className="text-2xl mr-2">⚡</span>
+              @{inviter} challenged your vibe coding skills!
+            </div>
+          )}
 
           {/* Save Profile Form */}
           <div className="card">
