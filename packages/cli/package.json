@@ -1,6 +1,6 @@
 {
   "name": "vibetracking",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Track AI coding assistant token usage and costs across Claude Code, Codex, Cursor, and more.",
   "license": "MIT",
   "type": "module",
