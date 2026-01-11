@@ -1,10 +1,16 @@
 {
   "name": "@starknetid/vibetracking-core-win32-x64-msvc",
-  "version": "0.2.0",
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "version": "0.2.2",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "vibetracking-core.win32-x64-msvc.node",
-  "files": ["vibetracking-core.win32-x64-msvc.node"],
+  "files": [
+    "vibetracking-core.win32-x64-msvc.node"
+  ],
   "description": "Native Rust core for vibetracking CLI (Windows x64)",
   "license": "MIT",
   "engines": {

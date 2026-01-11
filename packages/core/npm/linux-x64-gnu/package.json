@@ -1,16 +1,24 @@
 {
   "name": "@starknetid/vibetracking-core-linux-x64-gnu",
-  "version": "0.2.0",
-  "os": ["linux"],
-  "cpu": ["x64"],
+  "version": "0.2.2",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "main": "vibetracking-core.linux-x64-gnu.node",
-  "files": ["vibetracking-core.linux-x64-gnu.node"],
+  "files": [
+    "vibetracking-core.linux-x64-gnu.node"
+  ],
   "description": "Native Rust core for vibetracking CLI (Linux x64 glibc)",
   "license": "MIT",
   "engines": {
     "node": ">= 16"
   },
-  "libc": ["glibc"],
+  "libc": [
+    "glibc"
+  ],
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
