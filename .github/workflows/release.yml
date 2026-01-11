@@ -181,25 +181,24 @@ jobs:
         run: ls -la npm/ || echo "No npm directory"
         working-directory: packages/core
 
+      - name: Update npm (required for OIDC)
+        run: npm install -g npm@latest
+
       - name: Publish platform packages
         if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           for dir in npm/*/; do
             if [ -d "$dir" ]; then
               echo "Publishing $dir"
-              (cd "$dir" && npm publish --access public --provenance)
+              (cd "$dir" && npm publish --access public)
             fi
           done
         working-directory: packages/core
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @starknetid/vibetracking-core
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: npm publish --access public --provenance
+        run: npm publish --access public
         working-directory: packages/core
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Build CLI
         run: bun run build
@@ -207,10 +206,8 @@ jobs:
 
       - name: Publish vibetracking CLI
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: npm publish --access public --provenance
+        run: npm publish --access public
         working-directory: packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Summary
         run: |

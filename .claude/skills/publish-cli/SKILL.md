@@ -65,7 +65,31 @@ Monitor progress at: Actions > Release CLI
 
 - **File**: `.github/workflows/release.yml`
 - **Trigger**: Push tags matching `cli-v*`
-- **Secret required**: `NPM_TOKEN` (Granular Access Token with publish permissions)
+- **Authentication**: OIDC Trusted Publishing (no tokens required)
+
+### Setting Up Trusted Publishers
+
+Each package must be configured on npmjs.com to trust this workflow:
+
+1. Go to `https://www.npmjs.com/package/<package-name>/access`
+2. Scroll to **"Trusted Publisher"** section
+3. Click **"GitHub Actions"**
+4. Configure:
+   - **Organization/User**: `lfglabs-dev`
+   - **Repository**: `louisville`
+   - **Workflow filename**: `release.yml`
+   - **Environment**: *(leave blank)*
+
+Packages requiring trusted publisher setup:
+- `vibetracking`
+- `@starknetid/vibetracking-core`
+- `@starknetid/vibetracking-core-darwin-x64`
+- `@starknetid/vibetracking-core-darwin-arm64`
+- `@starknetid/vibetracking-core-darwin-universal`
+- `@starknetid/vibetracking-core-linux-x64-gnu`
+- `@starknetid/vibetracking-core-linux-arm64-gnu`
+- `@starknetid/vibetracking-core-win32-x64-msvc`
+- `@starknetid/vibetracking-core-win32-arm64-msvc`
 
 ## Manual Trigger (Dry Run)
 
