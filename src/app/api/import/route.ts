@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeModelId } from "@/lib/normalizeModelId";
 
 // Chunk array into smaller batches for bulk operations
 function chunkArray<T>(array: T[], size: number): T[][] {
@@ -244,12 +245,15 @@ export async function POST(request: Request) {
           });
         }
 
+        // Normalize model ID for consistent storage
+        const normalizedModel = normalizeModelId(sourceData.modelId);
+
         // Batch token usage records (insert, not upsert - no unique constraint)
         tokenUsageRecords.push({
           user_id: userId,
           date: contribution.date,
           tool,
-          model: sourceData.modelId,
+          model: normalizedModel,
           input_tokens: sourceData.tokens.input,
           output_tokens: sourceData.tokens.output,
           cache_read_tokens: sourceData.tokens.cacheRead,
@@ -259,7 +263,7 @@ export async function POST(request: Request) {
         });
 
         // Track for favorites calculation
-        modelTokens[sourceData.modelId] = (modelTokens[sourceData.modelId] || 0) + totalTokens;
+        modelTokens[normalizedModel] = (modelTokens[normalizedModel] || 0) + totalTokens;
         toolTokens[tool] = (toolTokens[tool] || 0) + totalTokens;
       }
     }
