@@ -25,6 +25,7 @@ import {
   isCursorInstalled,
 } from "./cursor.js";
 import {
+  initNativeModule,
   parseLocalSourcesAsync,
   finalizeGraphAsync,
   type ParsedMessages,
@@ -205,6 +206,14 @@ async function openBrowserWithData(inviterUsername?: string) {
   if (cursorInstalled && !cursorLoggedIn) {
     console.log(pc.white("  We detected Cursor IDE installed."));
     await promptForCursorLogin();
+  }
+
+  // Initialize native module (downloads binary on first run)
+  try {
+    await initNativeModule();
+  } catch (e) {
+    console.error(pc.red(`\n  Failed to initialize: ${(e as Error).message}\n`));
+    process.exit(1);
   }
 
   const spinner = createSpinner({ color: "cyan" });

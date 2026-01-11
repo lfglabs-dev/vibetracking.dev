@@ -1,45 +1,53 @@
 ---
 name: publish-cli
 description: >
-  CLI publishing workflow for npm releases via GitHub Actions.
+  CLI publishing workflow using GitHub releases for binaries and local npm publish.
   Trigger terms: publish, release, npm, cli, version, tag, github actions,
-  vibetracking-core, package, deploy cli.
+  vibetracking, package, deploy cli.
 ---
 
 ## When to Use
 
 - Publishing a new version of the CLI to npm
-- Checking which packages are published
-- Understanding the release workflow
+- Checking the release workflow
+- Understanding the hybrid publishing model
 
-## Published Packages
+## Architecture: Hybrid Publishing
 
-| Package | Description |
-|---------|-------------|
-| `vibetracking` | Main CLI package |
-| `@starknetid/vibetracking-core` | Native Rust core (auto-selects platform) |
-| `@starknetid/vibetracking-core-darwin-x64` | macOS Intel |
-| `@starknetid/vibetracking-core-darwin-arm64` | macOS Apple Silicon |
-| `@starknetid/vibetracking-core-darwin-universal` | macOS Universal |
-| `@starknetid/vibetracking-core-linux-x64-gnu` | Linux x64 (glibc) |
-| `@starknetid/vibetracking-core-linux-arm64-gnu` | Linux ARM64 (glibc) |
-| `@starknetid/vibetracking-core-win32-x64-msvc` | Windows x64 |
-| `@starknetid/vibetracking-core-win32-arm64-msvc` | Windows ARM64 |
+The CLI uses a hybrid publishing approach:
+
+| Component | Host | Description |
+|-----------|------|-------------|
+| `vibetracking` | npm | CLI JavaScript wrapper (you publish locally) |
+| Native binaries | GitHub Releases | `.node` files for each platform |
+
+**Why?** This simplifies publishing to 1 npm package instead of 9, avoiding npm OIDC/auth issues.
+
+**How it works**: On first run, the CLI downloads the correct native binary from GitHub releases to `~/.vibetracking/bin/{version}/`.
 
 ## Procedure: Publish a New Version
 
 ### Step 1: Update Version Numbers
 
-Update versions in **both** package.json files:
-- `packages/cli/package.json`
-- `packages/core/package.json`
+Update version in `packages/cli/package.json`:
+```json
+{
+  "version": "X.Y.Z"
+}
+```
 
-Also update `optionalDependencies` versions in core's package.json.
+Update `BINARY_VERSION` constant in:
+- `packages/cli/src/native.ts`
+- `packages/cli/src/native-runner.ts`
+
+```typescript
+const BINARY_VERSION = "X.Y.Z";
+```
 
 ### Step 2: Commit and Push
 
 ```bash
-git add packages/cli/package.json packages/core/package.json
+git add packages/cli/
 git commit -m "chore: bump CLI version to X.Y.Z"
 git push origin main
 ```
@@ -51,57 +59,66 @@ git tag cli-vX.Y.Z
 git push origin cli-vX.Y.Z
 ```
 
-### Step 4: Verify Release
+### Step 4: Wait for CI
 
-GitHub Actions will automatically:
+GitHub Actions will:
 1. Build native binaries for all 6 platforms
 2. Create universal macOS binary
-3. Publish `@starknetid/vibetracking-core` and all platform packages
-4. Publish `vibetracking` CLI
+3. Upload all binaries to GitHub Release
 
 Monitor progress at: Actions > Release CLI
+
+### Step 5: Publish CLI to npm (Locally)
+
+Once CI completes, publish from your local machine:
+
+```bash
+cd packages/cli
+pnpm build
+npm publish --access public
+```
+
+### Step 6: Verify
+
+```bash
+# Check npm
+npm view vibetracking versions
+
+# Test fresh install (should download binary)
+rm -rf ~/.vibetracking/bin
+bunx vibetracking@X.Y.Z --version
+```
 
 ## Workflow Configuration
 
 - **File**: `.github/workflows/release.yml`
 - **Trigger**: Push tags matching `cli-v*`
-- **Authentication**: OIDC Trusted Publishing (no tokens required)
+- **Output**: Native binaries uploaded to GitHub Release
 
-### Setting Up Trusted Publishers
+### Manual Trigger (Dry Run)
 
-Each package must be configured on npmjs.com to trust this workflow:
-
-1. Go to `https://www.npmjs.com/package/<package-name>/access`
-2. Scroll to **"Trusted Publisher"** section
-3. Click **"GitHub Actions"**
-4. Configure:
-   - **Organization/User**: `lfglabs-dev`
-   - **Repository**: `louisville`
-   - **Workflow filename**: `release.yml`
-   - **Environment**: *(leave blank)*
-
-Packages requiring trusted publisher setup:
-- `vibetracking`
-- `@starknetid/vibetracking-core`
-- `@starknetid/vibetracking-core-darwin-x64`
-- `@starknetid/vibetracking-core-darwin-arm64`
-- `@starknetid/vibetracking-core-darwin-universal`
-- `@starknetid/vibetracking-core-linux-x64-gnu`
-- `@starknetid/vibetracking-core-linux-arm64-gnu`
-- `@starknetid/vibetracking-core-win32-x64-msvc`
-- `@starknetid/vibetracking-core-win32-arm64-msvc`
-
-## Manual Trigger (Dry Run)
-
-Test the workflow without publishing:
+Test the build without uploading:
 1. Go to Actions > Release CLI
 2. Click "Run workflow"
 3. Check "Dry run" option
+
+## Native Binary Locations
+
+Binaries are downloaded to `~/.vibetracking/bin/{version}/`:
+
+| Platform | Binary Name |
+|----------|-------------|
+| macOS Intel | `vibetracking-core.darwin-x64.node` |
+| macOS ARM | `vibetracking-core.darwin-arm64.node` |
+| Linux x64 | `vibetracking-core.linux-x64-gnu.node` |
+| Linux ARM64 | `vibetracking-core.linux-arm64-gnu.node` |
+| Windows x64 | `vibetracking-core.win32-x64-msvc.node` |
+| Windows ARM64 | `vibetracking-core.win32-arm64-msvc.node` |
 
 ## User Installation
 
 After publishing, users can install with:
 ```bash
-bunx vibetracking          # One-off execution
+bunx vibetracking          # One-off execution (downloads binary on first run)
 bun add -g vibetracking    # Global install
 ```

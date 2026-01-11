@@ -1,8 +1,8 @@
 /**
  * Native module loader for Rust core
  *
- * Exposes all Rust functions with proper TypeScript types.
- * Native module is REQUIRED - no TypeScript fallback.
+ * Downloads the native binary from GitHub releases on first run,
+ * then loads it from ~/.vibetracking/bin/
  */
 
 import type {
@@ -10,6 +10,83 @@ import type {
   GraphOptions as TSGraphOptions,
   SourceType,
 } from "./graph-types.js";
+import { createRequire } from "module";
+import { existsSync, mkdirSync, writeFileSync, chmodSync } from "fs";
+import { homedir } from "os";
+import path from "path";
+
+// =============================================================================
+// Binary Download Configuration
+// =============================================================================
+
+const BINARY_VERSION = "0.2.0";
+const GITHUB_REPO = "lfglabs-dev/pattaya";
+const GITHUB_RELEASE_URL = `https://github.com/${GITHUB_REPO}/releases/download`;
+
+function getPlatformBinaryName(): string {
+  const platform = process.platform;
+  const arch = process.arch;
+
+  const platformMap: Record<string, string> = {
+    "darwin-arm64": "darwin-arm64",
+    "darwin-x64": "darwin-x64",
+    "linux-x64": "linux-x64-gnu",
+    "linux-arm64": "linux-arm64-gnu",
+    "win32-x64": "win32-x64-msvc",
+    "win32-arm64": "win32-arm64-msvc",
+  };
+
+  const key = `${platform}-${arch}`;
+  const binaryName = platformMap[key];
+  if (!binaryName) {
+    throw new Error(`Unsupported platform: ${platform}-${arch}`);
+  }
+
+  return `vibetracking-core.${binaryName}.node`;
+}
+
+function getBinaryPath(): string {
+  const binDir = path.join(homedir(), ".vibetracking", "bin", BINARY_VERSION);
+  return path.join(binDir, getPlatformBinaryName());
+}
+
+async function downloadBinary(destPath: string): Promise<void> {
+  const binaryName = getPlatformBinaryName();
+  const url = `${GITHUB_RELEASE_URL}/cli-v${BINARY_VERSION}/${binaryName}`;
+
+  console.log(`\n  Downloading native binary...`);
+  console.log(`  ${url}\n`);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to download binary: ${response.status} ${response.statusText}\n` +
+      `URL: ${url}\n` +
+      `Please check if the release exists at https://github.com/${GITHUB_REPO}/releases/tag/cli-v${BINARY_VERSION}`
+    );
+  }
+
+  const buffer = await response.arrayBuffer();
+  mkdirSync(path.dirname(destPath), { recursive: true });
+  writeFileSync(destPath, Buffer.from(buffer));
+
+  // Make executable on Unix
+  if (process.platform !== "win32") {
+    chmodSync(destPath, 0o755);
+  }
+
+  console.log(`  Binary installed to ${destPath}\n`);
+}
+
+async function ensureBinaryExists(): Promise<string> {
+  const binaryPath = getBinaryPath();
+
+  if (!existsSync(binaryPath)) {
+    await downloadBinary(binaryPath);
+  }
+
+  return binaryPath;
+}
 
 // =============================================================================
 // Types matching Rust exports
@@ -188,15 +265,26 @@ interface NativeCore {
 
 let nativeCore: NativeCore | null = null;
 let loadError: Error | null = null;
+let binaryPath: string | null = null;
 
-try {
-  // Type assertion needed because dynamic import returns module namespace
-  // nativeCore.version() is called directly, async functions go through subprocess
-  nativeCore = await import("@starknetid/vibetracking-core").then(
-    (m) => (m.default || m) as unknown as NativeCore
-  );
-} catch (e) {
-  loadError = e as Error;
+/**
+ * Initialize the native module - downloads binary if needed
+ * Must be called before using any native functions
+ */
+export async function initNativeModule(): Promise<void> {
+  if (nativeCore) return; // Already initialized
+
+  try {
+    binaryPath = await ensureBinaryExists();
+    const require = createRequire(import.meta.url);
+    nativeCore = require(binaryPath) as NativeCore;
+  } catch (e) {
+    loadError = e as Error;
+    throw new Error(
+      `Failed to load native module: ${loadError.message}\n` +
+      `Binary path: ${binaryPath || "unknown"}`
+    );
+  }
 }
 
 // =============================================================================
@@ -378,7 +466,7 @@ export interface FinalizeOptions {
 
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { writeFileSync, unlinkSync, mkdirSync } from "node:fs";
+import { unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
@@ -554,7 +642,7 @@ async function runInSubprocess<T>(method: string, args: unknown[]): Promise<T> {
 
 export async function parseLocalSourcesAsync(options: LocalParseOptions): Promise<ParsedMessages> {
   if (!isNativeAvailable()) {
-    throw new Error("Native module required. Run: bun run build:core");
+    throw new Error("Native module not initialized. Call initNativeModule() first.");
   }
 
   const nativeOptions: NativeLocalParseOptions = {
@@ -570,7 +658,7 @@ export async function parseLocalSourcesAsync(options: LocalParseOptions): Promis
 
 export async function finalizeReportAsync(options: FinalizeOptions): Promise<ModelReport> {
   if (!isNativeAvailable()) {
-    throw new Error("Native module required. Run: bun run build:core");
+    throw new Error("Native module not initialized. Call initNativeModule() first.");
   }
 
   const nativeOptions: NativeFinalizeReportOptions = {
@@ -587,7 +675,7 @@ export async function finalizeReportAsync(options: FinalizeOptions): Promise<Mod
 
 export async function finalizeMonthlyReportAsync(options: FinalizeOptions): Promise<MonthlyReport> {
   if (!isNativeAvailable()) {
-    throw new Error("Native module required. Run: bun run build:core");
+    throw new Error("Native module not initialized. Call initNativeModule() first.");
   }
 
   const nativeOptions: NativeFinalizeReportOptions = {
@@ -604,7 +692,7 @@ export async function finalizeMonthlyReportAsync(options: FinalizeOptions): Prom
 
 export async function finalizeGraphAsync(options: FinalizeOptions): Promise<TokenContributionData> {
   if (!isNativeAvailable()) {
-    throw new Error("Native module required. Run: bun run build:core");
+    throw new Error("Native module not initialized. Call initNativeModule() first.");
   }
 
   const nativeOptions: NativeFinalizeReportOptions = {
@@ -632,7 +720,7 @@ interface NativeReportAndGraph {
 
 export async function finalizeReportAndGraphAsync(options: FinalizeOptions): Promise<ReportAndGraph> {
   if (!isNativeAvailable()) {
-    throw new Error("Native module required. Run: bun run build:core");
+    throw new Error("Native module not initialized. Call initNativeModule() first.");
   }
 
   const nativeOptions: NativeFinalizeReportOptions = {
