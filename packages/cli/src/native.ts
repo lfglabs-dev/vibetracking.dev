@@ -1,8 +1,8 @@
 /**
  * Native module loader for Rust core
  *
- * Downloads the native binary from GitHub releases on first run,
- * then loads it from ~/.vibetracking/bin/
+ * Loads the native binary from npm package @starknetid/vibetracking-core
+ * which uses optional dependencies for platform-specific binaries.
  */
 
 import type {
@@ -11,86 +11,6 @@ import type {
   SourceType,
 } from "./graph-types.js";
 import { createRequire } from "module";
-import pc from "picocolors";
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from "fs";
-import { homedir } from "os";
-import path from "path";
-
-// =============================================================================
-// Binary Download Configuration
-// =============================================================================
-
-const BINARY_VERSION = "0.2.0";
-const GITHUB_REPO = "lfglabs-dev/vibetracking.dev";
-const GITHUB_RELEASE_URL = `https://github.com/${GITHUB_REPO}/releases/download`;
-
-function getPlatformBinaryName(): string {
-  const platform = process.platform;
-  const arch = process.arch;
-
-  const platformMap: Record<string, string> = {
-    "darwin-arm64": "darwin-arm64",
-    "darwin-x64": "darwin-x64",
-    "linux-x64": "linux-x64-gnu",
-    "linux-arm64": "linux-arm64-gnu",
-    "win32-x64": "win32-x64-msvc",
-    "win32-arm64": "win32-arm64-msvc",
-  };
-
-  const key = `${platform}-${arch}`;
-  const binaryName = platformMap[key];
-  if (!binaryName) {
-    throw new Error(`Unsupported platform: ${platform}-${arch}`);
-  }
-
-  return `vibetracking-core.${binaryName}.node`;
-}
-
-function getBinaryPath(): string {
-  const binDir = path.join(homedir(), ".vibetracking", "bin", BINARY_VERSION);
-  return path.join(binDir, getPlatformBinaryName());
-}
-
-async function downloadBinary(destPath: string): Promise<void> {
-  const binaryName = getPlatformBinaryName();
-  const url = `${GITHUB_RELEASE_URL}/cli-v${BINARY_VERSION}/${binaryName}`;
-
-  // Shorten URL for display: just show the release tag and filename
-  const shortUrl = `github.com/.../cli-v${BINARY_VERSION}/${binaryName}`;
-
-  console.log(pc.magenta(`\n  📦 Grabbing the goods from GitHub...`));
-  console.log(pc.gray(`     ${shortUrl}\n`));
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to download binary: ${response.status} ${response.statusText}\n` +
-      `URL: ${url}\n` +
-      `Please check if the release exists at https://github.com/${GITHUB_REPO}/releases/tag/cli-v${BINARY_VERSION}`
-    );
-  }
-
-  const buffer = await response.arrayBuffer();
-  mkdirSync(path.dirname(destPath), { recursive: true });
-  writeFileSync(destPath, Buffer.from(buffer));
-
-  // Make executable on Unix
-  if (process.platform !== "win32") {
-    chmodSync(destPath, 0o755);
-  }
-
-  console.log(pc.green(`  ✅ Ready to vibe!\n`));
-}
-
-async function ensureBinaryExists(): Promise<string> {
-  const binaryPath = getBinaryPath();
-
-  if (!existsSync(binaryPath)) {
-    await downloadBinary(binaryPath);
-  }
-
-  return binaryPath;
-}
 
 // =============================================================================
 // Types matching Rust exports
@@ -269,24 +189,22 @@ interface NativeCore {
 
 let nativeCore: NativeCore | null = null;
 let loadError: Error | null = null;
-let binaryPath: string | null = null;
 
 /**
- * Initialize the native module - downloads binary if needed
+ * Initialize the native module from npm package
  * Must be called before using any native functions
  */
 export async function initNativeModule(): Promise<void> {
   if (nativeCore) return; // Already initialized
 
   try {
-    binaryPath = await ensureBinaryExists();
     const require = createRequire(import.meta.url);
-    nativeCore = require(binaryPath) as NativeCore;
+    nativeCore = require("@starknetid/vibetracking-core") as NativeCore;
   } catch (e) {
     loadError = e as Error;
     throw new Error(
       `Failed to load native module: ${loadError.message}\n` +
-      `Binary path: ${binaryPath || "unknown"}`
+      `Make sure @starknetid/vibetracking-core is installed.`
     );
   }
 }
@@ -470,7 +388,7 @@ export interface FinalizeOptions {
 
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { unlinkSync } from "node:fs";
+import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
