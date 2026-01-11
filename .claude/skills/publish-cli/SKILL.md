@@ -54,29 +54,40 @@ git push origin main
 
 ### Step 3: Create and Push Tag
 
+**IMPORTANT**: Create the tag AFTER pushing the version bump to main. The tag must point to the commit with the updated version and workflow.
+
 ```bash
 git tag cli-vX.Y.Z
 git push origin cli-vX.Y.Z
 ```
 
-### Step 4: Wait for CI
+### Step 4: Wait for CI and Verify Release
 
 GitHub Actions will:
 1. Build native binaries for all 6 platforms
 2. Create universal macOS binary
 3. Upload all binaries to GitHub Release
 
-Monitor progress at: Actions > Release CLI
+Monitor progress: `gh run watch <RUN_ID> --exit-status`
+
+**Before proceeding**: Verify binaries were uploaded:
+```bash
+gh release view cli-vX.Y.Z --json assets --jq '.assets[].name'
+```
+
+You should see 7 `.node` files (6 platforms + 1 universal macOS).
 
 ### Step 5: Publish CLI to npm (Locally)
 
-Once CI completes, publish from your local machine:
+Once CI completes and binaries are verified, publish from your local machine:
 
 ```bash
 cd packages/cli
 pnpm build
 npm publish --access public
 ```
+
+**Note**: npm will prompt for OTP (one-time password) from your authenticator app.
 
 ### Step 6: Verify
 
@@ -122,3 +133,30 @@ After publishing, users can install with:
 bunx vibetracking          # One-off execution (downloads binary on first run)
 bun add -g vibetracking    # Global install
 ```
+
+## Troubleshooting
+
+### CI Failed / Tag Points to Old Workflow
+
+If the release workflow fails or you need to recreate a tag:
+
+```bash
+# Delete tag locally and remotely
+git tag -d cli-vX.Y.Z
+git push origin :refs/tags/cli-vX.Y.Z
+
+# Create new tag on current main
+git tag cli-vX.Y.Z origin/main
+git push origin cli-vX.Y.Z
+```
+
+### npm Version Already Exists but Tarball is 404
+
+If `npm view vibetracking versions` shows a version but `bunx vibetracking@X.Y.Z` fails with 404, the version was corrupted. Bump to next patch version (e.g., 0.2.0 → 0.2.1).
+
+### Binary Download Fails
+
+Check that:
+1. GitHub release exists: `gh release view cli-vX.Y.Z`
+2. Repo is public (private repos require auth for release downloads)
+3. `GITHUB_REPO` in `native.ts` matches the actual repo name
