@@ -32,7 +32,7 @@
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "@starknetid/vibetracking-core": "^0.2.0",
+    "@starknetid/vibetracking-core": "workspace:*",
     "clipboardy": "^5.0.2",
     "commander": "^14.0.2",
     "csv-parse": "^5.6.0",
