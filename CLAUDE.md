@@ -558,14 +558,14 @@ The CLI is published to npm via GitHub Actions. The workflow builds native binar
 | Package | Description |
 |---------|-------------|
 | `vibetracking` | Main CLI package |
-| `@vibetracking/core` | Native Rust core (auto-selects platform) |
-| `@vibetracking/core-darwin-x64` | macOS Intel |
-| `@vibetracking/core-darwin-arm64` | macOS Apple Silicon |
-| `@vibetracking/core-darwin-universal` | macOS Universal |
-| `@vibetracking/core-linux-x64-gnu` | Linux x64 (glibc) |
-| `@vibetracking/core-linux-arm64-gnu` | Linux ARM64 (glibc) |
-| `@vibetracking/core-win32-x64-msvc` | Windows x64 |
-| `@vibetracking/core-win32-arm64-msvc` | Windows ARM64 |
+| `@starknetid/vibetracking-core` | Native Rust core (auto-selects platform) |
+| `@starknetid/vibetracking-core-darwin-x64` | macOS Intel |
+| `@starknetid/vibetracking-core-darwin-arm64` | macOS Apple Silicon |
+| `@starknetid/vibetracking-core-darwin-universal` | macOS Universal |
+| `@starknetid/vibetracking-core-linux-x64-gnu` | Linux x64 (glibc) |
+| `@starknetid/vibetracking-core-linux-arm64-gnu` | Linux ARM64 (glibc) |
+| `@starknetid/vibetracking-core-win32-x64-msvc` | Windows x64 |
+| `@starknetid/vibetracking-core-win32-arm64-msvc` | Windows ARM64 |
 
 ### How to Publish a New Version
 
@@ -585,7 +585,7 @@ The CLI is published to npm via GitHub Actions. The workflow builds native binar
 4. **GitHub Actions will automatically**:
    - Build native binaries for all 6 platforms
    - Create universal macOS binary
-   - Publish `@vibetracking/core` and all platform packages
+   - Publish `@starknetid/vibetracking-core` and all platform packages
    - Publish `vibetracking` CLI
 
 ### Workflow Configuration

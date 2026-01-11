@@ -77,13 +77,10 @@ async function main() {
   program
     .name("vibetracking")
     .description("Vibetracking - Track AI coding costs across Claude Code, Codex, Cursor, and more")
-    .version(pkg.version);
-
-  // Default command: always open browser with data
-  program
-    .command("default", { isDefault: true, hidden: true })
-    .action(async () => {
-      await openBrowserWithData();
+    .version(pkg.version)
+    .option("-i, --inviter <username>", "Accept a challenge from a user (e.g., @username)")
+    .action(async (options) => {
+      await openBrowserWithData(options.inviter);
     });
 
   // Cursor IDE integration
@@ -191,12 +188,19 @@ async function promptForCursorLogin(): Promise<boolean> {
   return true;
 }
 
-async function openBrowserWithData() {
+async function openBrowserWithData(inviterUsername?: string) {
   // Check if Cursor is installed but not logged in - prompt user to setup
   const cursorInstalled = isCursorInstalled();
   const cursorLoggedIn = isCursorLoggedIn();
 
+  // Clean inviter username (strip @ prefix if present)
+  const inviter = inviterUsername?.replace(/^@/, "");
+
   console.log(pc.cyan("\n  Vibetracking\n"));
+
+  if (inviter) {
+    console.log(pc.magenta(`  Accepting challenge from @${inviter}\n`));
+  }
 
   if (cursorInstalled && !cursorLoggedIn) {
     console.log(pc.white("  We detected Cursor IDE installed."));
@@ -264,7 +268,13 @@ async function openBrowserWithData() {
   // Encode data and open browser
   const encoded = encodeDataForBrowser(graphData);
   const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}/import#${encoded}`;
+
+  // Build URL with optional inviter query param
+  let url = `${baseUrl}/import`;
+  if (inviter) {
+    url += `?inviter=${encodeURIComponent(inviter)}`;
+  }
+  url += `#${encoded}`;
 
   console.log(pc.white("  Opening browser to import your data..."));
   console.log(pc.gray(`  ${url.slice(0, 60)}...\n`));
