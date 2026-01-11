@@ -9,48 +9,11 @@
  */
 
 import { createRequire } from "module";
-import { existsSync } from "node:fs";
 import { readFileSync } from "node:fs";
-import { homedir } from "os";
-import path from "path";
 
-// Binary configuration - must match native.ts
-const BINARY_VERSION = "0.2.0";
-
-function getPlatformBinaryName(): string {
-  const platform = process.platform;
-  const arch = process.arch;
-
-  const platformMap: Record<string, string> = {
-    "darwin-arm64": "darwin-arm64",
-    "darwin-x64": "darwin-x64",
-    "linux-x64": "linux-x64-gnu",
-    "linux-arm64": "linux-arm64-gnu",
-    "win32-x64": "win32-x64-msvc",
-    "win32-arm64": "win32-arm64-msvc",
-  };
-
-  const key = `${platform}-${arch}`;
-  const binaryName = platformMap[key];
-  if (!binaryName) {
-    throw new Error(`Unsupported platform: ${platform}-${arch}`);
-  }
-
-  return `vibetracking-core.${binaryName}.node`;
-}
-
-function getBinaryPath(): string {
-  const binDir = path.join(homedir(), ".vibetracking", "bin", BINARY_VERSION);
-  return path.join(binDir, getPlatformBinaryName());
-}
-
-// Load the native module from the downloaded binary
-const binaryPath = getBinaryPath();
-if (!existsSync(binaryPath)) {
-  throw new Error(`Native binary not found at ${binaryPath}. Run 'vibetracking' first to download it.`);
-}
+// Load the native module from npm package
 const require = createRequire(import.meta.url);
-const nativeCore = require(binaryPath);
+const nativeCore = require("@starknetid/vibetracking-core");
 
 interface NativeRunnerRequest {
   method: string;
