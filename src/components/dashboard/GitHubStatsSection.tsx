@@ -282,68 +282,70 @@ export function GitHubStatsSection({ username }: GitHubStatsSectionProps) {
   }
 
   return (
-    <>
-      <ChartCard
-        title="GitHub Activity"
-        subtitle="Cumulative contributions over time"
-        rightSlot={<TimeframeSelector value={timeframe} onChange={setTimeframe} />}
-        height={280}
-      >
-        <LineChart
-          data={cumulativeSeries}
-          lines={[
-            {
-              dataKey: "total",
-              color: GITHUB_COLORS.contributions,
-              label: "Total contributions",
-            },
-          ]}
-          xAxisKey="date"
-          xAxisFormatter={formatDate}
-          yAxisFormatter={(value) => formatNumber(value)}
-          tooltipFormatter={(value) => {
-            const numericValue = typeof value === "number" ? value : Number(value);
-            return [formatNumber(Number.isFinite(numericValue) ? numericValue : 0), "Total contributions"];
-          }}
-          tooltipLabelFormatter={formatDate}
-          showLegend={false}
-          referenceLines={referenceLines}
-          xAxisTickCount={8}
-        />
-      </ChartCard>
-
-      {/* Model release filter */}
-      <div className="flex items-center justify-center gap-4 mt-3">
-        <span className="text-xs text-[#232323]/60">Show releases:</span>
-        {(Object.entries(MODEL_FAMILY_CONFIG) as [ModelFamily, typeof MODEL_FAMILY_CONFIG[ModelFamily]][]).map(
-          ([key, config]) => (
-            <label
-              key={key}
-              className="flex items-center gap-1.5 cursor-pointer text-xs"
-            >
-              <input
-                type="checkbox"
-                checked={enabledModels[key]}
-                onChange={() => toggleModel(key)}
-                className="w-3.5 h-3.5 rounded border-[#232323]/20 accent-current"
-                style={{ accentColor: config.color }}
-              />
-              <span
-                className="font-medium"
-                style={{ color: enabledModels[key] ? config.color : "#232323" }}
-              >
-                {config.label}
-              </span>
-            </label>
-          )
-        )}
-      </div>
-
-      {githubStats.partial && (
-        <p className="text-xs text-[#232323]/40 text-center mt-3">
-          Showing public activity only. Add GITHUB_PAT for full history.
-        </p>
-      )}
-    </>
+    <ChartCard
+      title="GitHub Activity"
+      subtitle="Cumulative contributions over time"
+      rightSlot={
+        <div className="flex items-center gap-4">
+          {/* Model release filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#232323]/60">Releases:</span>
+            {(Object.entries(MODEL_FAMILY_CONFIG) as [ModelFamily, typeof MODEL_FAMILY_CONFIG[ModelFamily]][]).map(
+              ([key, config]) => (
+                <label
+                  key={key}
+                  className="flex items-center gap-1 cursor-pointer text-xs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={enabledModels[key]}
+                    onChange={() => toggleModel(key)}
+                    className="w-3 h-3 rounded border-[#232323]/20 accent-current"
+                    style={{ accentColor: config.color }}
+                  />
+                  <span
+                    className="font-medium"
+                    style={{ color: enabledModels[key] ? config.color : "#232323" }}
+                  >
+                    {config.label}
+                  </span>
+                </label>
+              )
+            )}
+          </div>
+          <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+        </div>
+      }
+      height={280}
+      footer={
+        githubStats.partial ? (
+          <p className="text-xs text-[#232323]/40 text-center">
+            Showing public activity only. Add GITHUB_PAT for full history.
+          </p>
+        ) : undefined
+      }
+    >
+      <LineChart
+        data={cumulativeSeries}
+        lines={[
+          {
+            dataKey: "total",
+            color: GITHUB_COLORS.contributions,
+            label: "Total contributions",
+          },
+        ]}
+        xAxisKey="date"
+        xAxisFormatter={formatDate}
+        yAxisFormatter={(value) => formatNumber(value)}
+        tooltipFormatter={(value) => {
+          const numericValue = typeof value === "number" ? value : Number(value);
+          return [formatNumber(Number.isFinite(numericValue) ? numericValue : 0), "Total contributions"];
+        }}
+        tooltipLabelFormatter={formatDate}
+        showLegend={false}
+        referenceLines={referenceLines}
+        xAxisTickCount={8}
+      />
+    </ChartCard>
   );
 }

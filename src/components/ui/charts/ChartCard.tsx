@@ -7,10 +7,11 @@ interface ChartCardProps {
   subtitle?: string;
   rightSlot?: ReactNode;
   height?: number;
+  footer?: ReactNode;
   children: ReactNode;
 }
 
-export function ChartCard({ title, subtitle, rightSlot, height = 300, children }: ChartCardProps) {
+export function ChartCard({ title, subtitle, rightSlot, height = 300, footer, children }: ChartCardProps) {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
@@ -21,6 +22,7 @@ export function ChartCard({ title, subtitle, rightSlot, height = 300, children }
         {rightSlot}
       </div>
       <div style={{ height }}>{children}</div>
+      {footer && <div className="mt-3">{footer}</div>}
     </div>
   );
 }
