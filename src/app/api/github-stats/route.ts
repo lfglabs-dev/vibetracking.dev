@@ -5,11 +5,20 @@ import { NextResponse } from "next/server";
 const statsCache = new Map<string, { data: GitHubStatsResponse; cachedAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// GraphQL query for contribution data
-const GITHUB_GRAPHQL_QUERY = `
+// GraphQL query to get user creation date
+const GITHUB_USER_QUERY = `
   query($username: String!) {
     user(login: $username) {
-      contributionsCollection {
+      createdAt
+    }
+  }
+`;
+
+// GraphQL query for contribution data with date range
+const GITHUB_CONTRIBUTIONS_QUERY = `
+  query($username: String!, $from: DateTime!, $to: DateTime!) {
+    user(login: $username) {
+      contributionsCollection(from: $from, to: $to) {
         totalCommitContributions
         totalPullRequestContributions
         totalIssueContributions
@@ -28,7 +37,16 @@ const GITHUB_GRAPHQL_QUERY = `
   }
 `;
 
-interface GitHubGraphQLResponse {
+interface GitHubUserResponse {
+  data?: {
+    user?: {
+      createdAt: string;
+    };
+  };
+  errors?: Array<{ message: string }>;
+}
+
+interface GitHubContributionsResponse {
   data?: {
     user?: {
       contributionsCollection: {
@@ -60,6 +78,35 @@ interface GitHubStatsResponse {
   contributionCalendar: Array<{ date: string; count: number }>;
   fetchedAt: number;
   partial?: boolean;
+}
+
+// Helper function to generate year ranges from a start date to now
+function getYearRanges(createdAt: string): Array<{ from: string; to: string }> {
+  const startDate = new Date(createdAt);
+  const now = new Date();
+  const ranges: Array<{ from: string; to: string }> = [];
+
+  // Start from the user's account creation date
+  let currentStart = new Date(startDate);
+
+  while (currentStart < now) {
+    // Each range is 1 year (GitHub's max for contributionsCollection)
+    const rangeEnd = new Date(currentStart);
+    rangeEnd.setFullYear(rangeEnd.getFullYear() + 1);
+
+    // Don't go past today
+    const effectiveEnd = rangeEnd > now ? now : rangeEnd;
+
+    ranges.push({
+      from: currentStart.toISOString(),
+      to: effectiveEnd.toISOString(),
+    });
+
+    // Move to next year
+    currentStart = rangeEnd;
+  }
+
+  return ranges;
 }
 
 export async function GET(request: Request) {
@@ -94,40 +141,27 @@ export async function GET(request: Request) {
   };
 
   try {
-    const response = await fetch("https://api.github.com/graphql", {
+    // Step 1: Get user creation date
+    const userResponse = await fetch("https://api.github.com/graphql", {
       method: "POST",
       headers,
       body: JSON.stringify({
-        query: GITHUB_GRAPHQL_QUERY,
+        query: GITHUB_USER_QUERY,
         variables: { username },
       }),
     });
 
-    // Check for rate limiting
-    const rateLimitRemaining = response.headers.get("X-RateLimit-Remaining");
-    const rateLimitReset = response.headers.get("X-RateLimit-Reset");
-
-    if (response.status === 403 && rateLimitRemaining === "0") {
-      const resetTime = rateLimitReset
-        ? new Date(parseInt(rateLimitReset) * 1000).toISOString()
-        : "unknown";
+    if (!userResponse.ok) {
       return NextResponse.json(
-        { error: "Rate limited", resetAt: resetTime },
-        { status: 429 }
+        { error: `GitHub API error: ${userResponse.status}` },
+        { status: userResponse.status }
       );
     }
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `GitHub API error: ${response.status}` },
-        { status: response.status }
-      );
-    }
+    const userResult: GitHubUserResponse = await userResponse.json();
 
-    const result: GitHubGraphQLResponse = await response.json();
-
-    if (result.errors) {
-      const errorMessage = result.errors[0]?.message || "GraphQL error";
+    if (userResult.errors) {
+      const errorMessage = userResult.errors[0]?.message || "GraphQL error";
       if (errorMessage.includes("Could not resolve to a User")) {
         return NextResponse.json(
           { error: "User not found" },
@@ -140,7 +174,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const user = result.data?.user;
+    const user = userResult.data?.user;
     if (!user) {
       return NextResponse.json(
         { error: "User not found" },
@@ -148,26 +182,86 @@ export async function GET(request: Request) {
       );
     }
 
-    const contributions = user.contributionsCollection;
+    // Step 2: Calculate year ranges from account creation to now
+    const yearRanges = getYearRanges(user.createdAt);
 
-    // Flatten contribution calendar into array of { date, count }
-    const contributionCalendar = contributions.contributionCalendar.weeks.flatMap(
-      (week) =>
-        week.contributionDays.map((day) => ({
-          date: day.date,
-          count: day.contributionCount,
-        }))
-    );
+    // Step 3: Fetch contributions for each year in parallel
+    const contributionPromises = yearRanges.map(async (range) => {
+      const response = await fetch("https://api.github.com/graphql", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          query: GITHUB_CONTRIBUTIONS_QUERY,
+          variables: { username, from: range.from, to: range.to },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to fetch contributions for range ${range.from} - ${range.to}`);
+        return null;
+      }
+
+      const result: GitHubContributionsResponse = await response.json();
+      return result.data?.user?.contributionsCollection || null;
+    });
+
+    const allContributions = await Promise.all(contributionPromises);
+
+    // Step 4: Aggregate all contributions
+    let totalContributions = 0;
+    let commits = 0;
+    let pullRequests = 0;
+    let issues = 0;
+    let reviews = 0;
+    const allCalendarDays: Array<{ date: string; count: number }> = [];
+
+    for (const contributions of allContributions) {
+      if (!contributions) continue;
+
+      totalContributions += contributions.contributionCalendar.totalContributions;
+      commits += contributions.totalCommitContributions;
+      pullRequests += contributions.totalPullRequestContributions;
+      issues += contributions.totalIssueContributions;
+      reviews += contributions.totalPullRequestReviewContributions;
+
+      // Flatten calendar days
+      for (const week of contributions.contributionCalendar.weeks) {
+        for (const day of week.contributionDays) {
+          allCalendarDays.push({
+            date: day.date,
+            count: day.contributionCount,
+          });
+        }
+      }
+    }
+
+    // Remove duplicate days (overlapping year boundaries) and sort by date
+    const calendarMap = new Map<string, number>();
+    for (const day of allCalendarDays) {
+      // Keep the max value for any duplicate dates
+      const existing = calendarMap.get(day.date) || 0;
+      calendarMap.set(day.date, Math.max(existing, day.count));
+    }
+
+    const contributionCalendar = Array.from(calendarMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     const statsData: GitHubStatsResponse = {
-      totalContributions: contributions.contributionCalendar.totalContributions,
-      commits: contributions.totalCommitContributions,
-      pullRequests: contributions.totalPullRequestContributions,
-      issues: contributions.totalIssueContributions,
-      reviews: contributions.totalPullRequestReviewContributions,
+      totalContributions,
+      commits,
+      pullRequests,
+      issues,
+      reviews,
       contributionCalendar,
       fetchedAt: Date.now(),
     };
+
+    // Check for rate limiting on the last request
+    const rateLimitRemaining = userResponse.headers.get("X-RateLimit-Remaining");
+    if (rateLimitRemaining && parseInt(rateLimitRemaining) < 100) {
+      console.warn(`GitHub API rate limit low: ${rateLimitRemaining} remaining`);
+    }
 
     // Cache the result server-side
     statsCache.set(username, { data: statsData, cachedAt: Date.now() });

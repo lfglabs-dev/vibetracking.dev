@@ -160,7 +160,7 @@ export function GitHubStatsSection({
             {formatNumber(githubStats.totalContributions)}
           </div>
           <div className="text-sm text-[#232323]/60">Contributions</div>
-          <div className="text-xs text-[#232323]/40">last year</div>
+          <div className="text-xs text-[#232323]/40">all time</div>
         </div>
         <div className="card text-center">
           <div
@@ -170,7 +170,7 @@ export function GitHubStatsSection({
             {formatNumber(githubStats.commits)}
           </div>
           <div className="text-sm text-[#232323]/60">Commits</div>
-          <div className="text-xs text-[#232323]/40">last year</div>
+          <div className="text-xs text-[#232323]/40">all time</div>
         </div>
         <div className="card text-center">
           <div
@@ -180,7 +180,7 @@ export function GitHubStatsSection({
             {formatNumber(githubStats.pullRequests)}
           </div>
           <div className="text-sm text-[#232323]/60">PRs</div>
-          <div className="text-xs text-[#232323]/40">last year</div>
+          <div className="text-xs text-[#232323]/40">all time</div>
         </div>
         <div className="card text-center">
           <div
@@ -190,7 +190,7 @@ export function GitHubStatsSection({
             {formatNumber(githubStats.reviews)}
           </div>
           <div className="text-sm text-[#232323]/60">Reviews</div>
-          <div className="text-xs text-[#232323]/40">last year</div>
+          <div className="text-xs text-[#232323]/40">all time</div>
         </div>
       </div>
 
