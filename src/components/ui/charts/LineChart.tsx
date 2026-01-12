@@ -40,7 +40,6 @@ interface LineChartProps {
   yAxisWidth?: number;
   referenceLines?: ReferenceLineConfig[];
   xAxisTickCount?: number;
-  xAxisAngle?: number;
 }
 
 export function LineChart({
@@ -57,19 +56,17 @@ export function LineChart({
   yAxisWidth = 60,
   referenceLines,
   xAxisTickCount,
-  xAxisAngle,
 }: LineChartProps) {
   const topMargin = referenceLines && referenceLines.length > 0 ? 24 : 5;
-  const bottomMargin = xAxisAngle ? 20 : 5;
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <RechartsLineChart data={data} margin={{ top: topMargin, right: 20, left: 10, bottom: bottomMargin }}>
+      <RechartsLineChart data={data} margin={{ top: topMargin, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid {...GRID_STYLE} />
         <XAxis
           dataKey={xAxisKey}
           tickFormatter={xAxisFormatter}
-          tick={{ ...AXIS_STYLE.tick, angle: xAxisAngle, textAnchor: xAxisAngle ? "end" : "middle" }}
+          tick={AXIS_STYLE.tick}
           tickLine={AXIS_STYLE.tickLine}
           axisLine={AXIS_STYLE.axisLine}
           tickCount={xAxisTickCount}
