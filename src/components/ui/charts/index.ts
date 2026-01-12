@@ -7,4 +7,5 @@ export { StackedAreaChart } from "./StackedAreaChart";
 export type { AreaConfig } from "./StackedAreaChart";
 export { ChartTooltip } from "./ChartTooltip";
 export { ChartCard } from "./ChartCard";
+export { DualHeatmap } from "./DualHeatmap";
 export * from "./constants";
