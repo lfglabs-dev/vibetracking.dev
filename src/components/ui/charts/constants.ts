@@ -33,6 +33,17 @@ export const TOOL_LABELS: Record<string, string> = {
   droid: "Droid",
 };
 
+// GitHub contribution colors
+export const GITHUB_COLORS = {
+  contributions: "#238636", // GitHub green
+  commits: "#3fb950", // Bright green
+  pullRequests: "#8250df", // Purple
+  issues: "#f85149", // Red/Orange
+  reviews: "#FD7E14", // Orange
+  calendar: "#238636", // GitHub green for heatmap
+  calendarEmpty: "#EEF0F2", // Empty day
+} as const;
+
 // Shared axis styling
 export const AXIS_STYLE = {
   tick: { fontSize: 11, fill: "#232323", fillOpacity: 0.5 },
