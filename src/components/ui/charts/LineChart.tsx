@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { AXIS_STYLE, GRID_STYLE, TOOLTIP_STYLE } from "./constants";
 
@@ -17,6 +18,12 @@ export interface LineConfig {
   dataKey: string;
   color: string;
   label?: string;
+}
+
+export interface ReferenceLineConfig {
+  x: string;
+  label: string;
+  color?: string;
 }
 
 interface LineChartProps {
@@ -31,6 +38,8 @@ interface LineChartProps {
   showLegend?: boolean;
   legendFormatter?: (value: string) => string;
   yAxisWidth?: number;
+  referenceLines?: ReferenceLineConfig[];
+  xAxisTickCount?: number;
 }
 
 export function LineChart({
@@ -45,10 +54,14 @@ export function LineChart({
   showLegend = true,
   legendFormatter,
   yAxisWidth = 60,
+  referenceLines,
+  xAxisTickCount,
 }: LineChartProps) {
+  const topMargin = referenceLines && referenceLines.length > 0 ? 24 : 5;
+
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <RechartsLineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+      <RechartsLineChart data={data} margin={{ top: topMargin, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid {...GRID_STYLE} />
         <XAxis
           dataKey={xAxisKey}
@@ -56,6 +69,8 @@ export function LineChart({
           tick={AXIS_STYLE.tick}
           tickLine={AXIS_STYLE.tickLine}
           axisLine={AXIS_STYLE.axisLine}
+          tickCount={xAxisTickCount}
+          interval={xAxisTickCount ? "preserveStartEnd" : "equidistantPreserveStart"}
         />
         <YAxis
           tickFormatter={yAxisFormatter}
@@ -75,6 +90,21 @@ export function LineChart({
             wrapperStyle={{ fontSize: 12 }}
           />
         )}
+        {referenceLines?.map((line) => (
+          <ReferenceLine
+            key={`${line.x}-${line.label}`}
+            x={line.x}
+            stroke={line.color || "#232323"}
+            strokeDasharray="4 4"
+            ifOverflow="extendDomain"
+            label={{
+              value: line.label,
+              position: "top",
+              fill: line.color || "#232323",
+              fontSize: 10,
+            }}
+          />
+        ))}
         {lines.map((line) => (
           <Line
             key={line.dataKey}
