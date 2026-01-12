@@ -24,16 +24,14 @@ interface DailyTotalPoint {
   total: number;
 }
 
-// Skeleton loader for the charts
+// Skeleton loader for the GitHub chart (single card)
 function StatsSkeleton() {
   return (
     <div className="animate-pulse">
-      {[...Array(3)].map((_, index) => (
-        <div key={index} className="card mb-6 last:mb-0">
-          <div className="h-6 bg-[#232323]/10 rounded w-40 mb-4" />
-          <div className="h-60 bg-[#232323]/10 rounded" />
-        </div>
-      ))}
+      <div className="card">
+        <div className="h-6 bg-[#232323]/10 rounded w-40 mb-4" />
+        <div className="h-60 bg-[#232323]/10 rounded" />
+      </div>
     </div>
   );
 }
@@ -76,12 +74,56 @@ function buildDailyTotals(stats: GitHubStats): DailyTotalPoint[] {
   }));
 }
 
-function buildCumulativeSeries(data: DailyTotalPoint[]): Array<{ date: string; total: number }> {
+function buildCumulativeSeries(
+  data: DailyTotalPoint[],
+  extraDates?: string[]
+): Array<{ date: string; total: number }> {
+  if (data.length === 0) return [];
+
+  // Build the cumulative series from the base data
   let running = 0;
-  return data.map((point) => {
+  const series = data.map((point) => {
     running += point.total;
     return { date: point.date, total: running };
   });
+
+  // If no extra dates to add, return as-is
+  if (!extraDates || extraDates.length === 0) return series;
+
+  // Create a map for quick lookup
+  const seriesMap = new Map(series.map((s) => [s.date, s.total]));
+
+  // Add extra dates that aren't already in the series
+  // These dates get interpolated values based on surrounding data
+  const allDates = new Set([...series.map((s) => s.date), ...extraDates]);
+  const sortedDates = Array.from(allDates).sort();
+
+  const extendedSeries: Array<{ date: string; total: number }> = [];
+  let lastValue = 0;
+
+  for (const date of sortedDates) {
+    if (seriesMap.has(date)) {
+      lastValue = seriesMap.get(date)!;
+      extendedSeries.push({ date, total: lastValue });
+    } else {
+      // For dates before first data point, use 0
+      // For dates after last data point, use the last value
+      // For dates in between, use the last known value (step interpolation)
+      const firstDate = series[0]?.date;
+      const lastDate = series[series.length - 1]?.date;
+
+      if (date < firstDate) {
+        extendedSeries.push({ date, total: 0 });
+      } else if (date > lastDate) {
+        extendedSeries.push({ date, total: lastValue });
+      } else {
+        // Date is in between - use last known value
+        extendedSeries.push({ date, total: lastValue });
+      }
+    }
+  }
+
+  return extendedSeries;
 }
 
 type ModelFamily = "claude" | "gpt" | "gemini";
@@ -203,26 +245,67 @@ export function GitHubStatsSection({ username }: GitHubStatsSectionProps) {
     });
   };
 
-  const referenceLines = useMemo(() => {
-    if (!hasFilteredTotals || !dateRange) return [];
-    // Filter by date range and enabled model families
+  // Calculate the visual date range based on timeframe (not data)
+  // This ensures reference lines show even if the user's data doesn't span the full timeframe
+  const visualDateRange = useMemo(() => {
+    const now = new Date();
+    const endDate = now.toISOString().split("T")[0];
+    let startDate: string;
+
+    switch (timeframe) {
+      case "7d": {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 7);
+        startDate = d.toISOString().split("T")[0];
+        break;
+      }
+      case "30d": {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 30);
+        startDate = d.toISOString().split("T")[0];
+        break;
+      }
+      case "1y": {
+        const d = new Date(now);
+        d.setFullYear(d.getFullYear() - 1);
+        startDate = d.toISOString().split("T")[0];
+        break;
+      }
+      case "all":
+      default:
+        // For "all", use the earliest model release date as start
+        startDate = MODEL_RELEASES[0]?.date || "2024-01-01";
+        break;
+    }
+
+    return { start: startDate, end: endDate };
+  }, [timeframe]);
+
+  // Get all visible model releases (dates that could have reference lines)
+  const visibleModelReleases = useMemo(() => {
     return MODEL_RELEASES.filter((release) => {
-      if (release.date < dateRange.start || release.date > dateRange.end) return false;
+      if (release.date < visualDateRange.start || release.date > visualDateRange.end) return false;
       // Check if any enabled model family matches this release
       return (Object.entries(enabledModels) as [ModelFamily, boolean][]).some(
         ([family, enabled]) => enabled && MODEL_FAMILY_CONFIG[family].match(release.label)
       );
-    }).map((release) => ({
+    });
+  }, [visualDateRange, enabledModels]);
+
+  // Build cumulative series, including model release dates for reference lines
+  const cumulativeSeries = useMemo(() => {
+    const modelReleaseDates = visibleModelReleases.map((r) => r.date);
+    return buildCumulativeSeries(filteredTotals, modelReleaseDates);
+  }, [filteredTotals, visibleModelReleases]);
+
+  const referenceLines = useMemo(() => {
+    if (!hasFilteredTotals) return [];
+    return visibleModelReleases.map((release) => ({
       x: release.date,
       label: release.label,
       color: release.color,
     }));
-  }, [dateRange, hasFilteredTotals, enabledModels]);
-
-  const cumulativeSeries = useMemo(
-    () => buildCumulativeSeries(filteredTotals),
-    [filteredTotals]
-  );
+  }, [visibleModelReleases, hasFilteredTotals]);
 
   if (loading) {
     return <StatsSkeleton />;
