@@ -16,74 +16,18 @@ export interface ContributionDay {
   count: number;
 }
 
-export interface GitHubStatsError {
+interface GitHubStatsError {
   error: string;
-  resetAt?: string; // ISO timestamp for rate limit reset
-}
-
-// Cache configuration
-const CACHE_KEY_PREFIX = "vibetracking_github_stats_";
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-interface CachedStats {
-  data: GitHubStats;
-  cachedAt: number;
-}
-
-/**
- * Get cached GitHub stats from localStorage
- */
-export function getCachedGitHubStats(username: string): GitHubStats | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const cached = localStorage.getItem(CACHE_KEY_PREFIX + username);
-    if (!cached) return null;
-
-    const { data, cachedAt }: CachedStats = JSON.parse(cached);
-    const age = Date.now() - cachedAt;
-
-    if (age > CACHE_TTL_MS) {
-      localStorage.removeItem(CACHE_KEY_PREFIX + username);
-      return null;
-    }
-
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Save GitHub stats to localStorage cache
- */
-function setCachedGitHubStats(username: string, data: GitHubStats): void {
-  if (typeof window === "undefined") return;
-
-  try {
-    const cached: CachedStats = {
-      data,
-      cachedAt: Date.now(),
-    };
-    localStorage.setItem(CACHE_KEY_PREFIX + username, JSON.stringify(cached));
-  } catch {
-    // Ignore storage errors (quota exceeded, etc.)
-  }
+  resetAt?: string;
 }
 
 /**
  * Fetch GitHub stats for a user
- * Returns cached data if available and fresh, otherwise fetches from API
+ * Server-side caching is handled by the API route (5-minute TTL)
  */
 export async function fetchGitHubStats(
   username: string
 ): Promise<GitHubStats | null> {
-  // Check cache first
-  const cached = getCachedGitHubStats(username);
-  if (cached) {
-    return cached;
-  }
-
   try {
     const response = await fetch(
       `/api/github-stats?username=${encodeURIComponent(username)}`
@@ -92,27 +36,16 @@ export async function fetchGitHubStats(
     if (!response.ok) {
       const errorData: GitHubStatsError = await response.json();
 
-      // Handle rate limiting - return stale cache if available
       if (response.status === 429) {
         console.warn("GitHub API rate limited:", errorData.resetAt);
-        return null;
+      } else if (response.status !== 404) {
+        console.error("GitHub API error:", errorData.error);
       }
 
-      // Handle not found
-      if (response.status === 404) {
-        return null;
-      }
-
-      console.error("GitHub API error:", errorData.error);
       return null;
     }
 
-    const data: GitHubStats = await response.json();
-
-    // Cache the result
-    setCachedGitHubStats(username, data);
-
-    return data;
+    return await response.json();
   } catch (error) {
     console.error("Failed to fetch GitHub stats:", error);
     return null;
@@ -143,7 +76,6 @@ export function calculateEfficiencyRatios(
     githubStats.pullRequests > 0 ? totalTokens / githubStats.pullRequests : 0;
 
   // Determine efficiency label based on tokens per contribution
-  // These thresholds are somewhat arbitrary and can be tuned
   let efficiencyLabel: "Efficient Shipper" | "Balanced Builder" | "Heavy Viber";
   if (tokensPerContribution < 500) {
     efficiencyLabel = "Efficient Shipper";
@@ -159,28 +91,4 @@ export function calculateEfficiencyRatios(
     tokensPerPR,
     efficiencyLabel,
   };
-}
-
-/**
- * Clear cached GitHub stats for a user
- */
-export function clearGitHubStatsCache(username: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(CACHE_KEY_PREFIX + username);
-}
-
-/**
- * Clear all cached GitHub stats
- */
-export function clearAllGitHubStatsCache(): void {
-  if (typeof window === "undefined") return;
-
-  const keysToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith(CACHE_KEY_PREFIX)) {
-      keysToRemove.push(key);
-    }
-  }
-  keysToRemove.forEach((key) => localStorage.removeItem(key));
 }
