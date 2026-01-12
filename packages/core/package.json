@@ -22,7 +22,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.4.1",
+    "@napi-rs/cli": "3.4.1",
     "ava": "^6.1.0"
   },
   "scripts": {
