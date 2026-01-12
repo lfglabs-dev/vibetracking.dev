@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "setup": "bun install && cd packages/core && bun run build && bun test",
+    "setup": "bun install && cd packages/core && bun install && bun run build && bun test",
     "run": "bun run dev",
     "archive": ""
   }

@@ -225,10 +225,17 @@ function findRecentCursorCsv(afterTimestamp: number): string | null {
 /**
  * Wait for Cursor CSV to appear in downloads folder
  */
-async function waitForCursorCsv(afterTimestamp: number, timeoutMs: number): Promise<string | null> {
+async function waitForCursorCsv(
+  afterTimestamp: number,
+  timeoutMs: number,
+  abortSignal?: AbortSignal
+): Promise<string | null> {
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeoutMs) {
+    if (abortSignal?.aborted) {
+      return null;
+    }
     const found = findRecentCursorCsv(afterTimestamp);
     if (found) {
       return found;
@@ -240,20 +247,71 @@ async function waitForCursorCsv(afterTimestamp: number, timeoutMs: number): Prom
 }
 
 /**
- * Prompt user to drag-and-drop the CSV file or skip
+ * Countdown with optional Enter to continue
  */
-async function promptForCsvPath(): Promise<string | null> {
+async function waitForEnterOrCountdown(seconds: number): Promise<void> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
   return new Promise((resolve) => {
-    rl.question(pc.white("\n  Drag the downloaded CSV here (or press Enter to skip): "), (answer) => {
+    let done = false;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      timers.forEach((timer) => clearTimeout(timer));
       rl.close();
+      process.stdout.write("\n");
+      resolve();
+    };
+
+    rl.once("line", () => finish());
+
+    process.stdout.write(pc.gray(`  Opening in ${seconds}...`));
+    for (let i = seconds - 1; i >= 1; i -= 1) {
+      timers.push(
+        setTimeout(() => {
+          if (!done) {
+            process.stdout.write(pc.gray(` ${i}...`));
+          }
+        }, (seconds - i) * 1000)
+      );
+    }
+    timers.push(setTimeout(() => finish(), seconds * 1000));
+  });
+}
+
+/**
+ * Prompt user to drag-and-drop the CSV file while still checking downloads
+ */
+async function waitForCsvPathOrDownload(afterTimestamp: number): Promise<string | null> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const dropUi =
+    "\n  ┌────────────────────────────────────────┐\n" +
+    "  │           📎 Drop CSV Here            │\n" +
+    "  └────────────────────────────────────────┘\n" +
+    "  Press Enter to skip.\n\n" +
+    "  ➜ ";
+  rl.setPrompt(pc.white(dropUi));
+  rl.prompt();
+
+  let resolved = false;
+  const abortController = new AbortController();
+
+  const inputPromise = new Promise<string | null>((resolve) => {
+    rl.on("line", (answer) => {
+      if (resolved) return;
       const trimmed = answer.trim();
 
       if (!trimmed) {
+        resolved = true;
         resolve(null);
         return;
       }
@@ -263,21 +321,47 @@ async function promptForCsvPath(): Promise<string | null> {
 
       // Validate file exists
       if (!fs.existsSync(cleanPath)) {
-        console.log(pc.red(`  File not found: ${cleanPath}`));
-        resolve(null);
+        console.log(pc.red(`  ❌ File not found: ${cleanPath}`));
+        rl.prompt();
         return;
       }
 
       // Validate it's a CSV file
       if (!cleanPath.toLowerCase().endsWith(".csv")) {
-        console.log(pc.red("  File must be a CSV file"));
-        resolve(null);
+        console.log(pc.red("  ❌ File must be a CSV file"));
+        rl.prompt();
         return;
       }
 
+      resolved = true;
       resolve(cleanPath);
     });
   });
+
+  const downloadPromise = waitForCursorCsv(
+    afterTimestamp,
+    DOWNLOAD_TIMEOUT_MS,
+    abortController.signal
+  );
+
+  const firstResult = await Promise.race([inputPromise, downloadPromise]);
+
+  if (firstResult) {
+    abortController.abort();
+    rl.close();
+    return firstResult;
+  }
+
+  if (firstResult === null && !resolved) {
+    console.log(pc.yellow("  ⏳ Download not detected yet."));
+    const userPath = await inputPromise;
+    rl.close();
+    return userPath;
+  }
+
+  abortController.abort();
+  rl.close();
+  return null;
 }
 
 /**
@@ -300,33 +384,32 @@ function validateCursorCsv(filePath: string): boolean {
 export async function syncCursorCache(): Promise<CursorSyncResult> {
   const beforeDownload = Date.now();
 
-  console.log(pc.cyan("\n  Cursor detected! Opening browser to download your usage data..."));
+  console.log(pc.cyan("\n  🧭 Cursor detected"));
+  console.log(pc.gray("  🔐 Cursor needs login in your browser to export usage data."));
+  console.log(pc.gray("  Press Enter to open now, or it will open in 3... 2... 1..."));
+  await waitForEnterOrCountdown(3);
+
+  console.log(pc.cyan("\n  🌐 Opening Cursor export page..."));
   await openCursorExportPage();
 
   // Wait a moment for browser to open
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  console.log(pc.gray("  Waiting for download..."));
+  console.log(pc.gray("\n  ⏳ Watching your Downloads folder..."));
+  console.log(pc.gray("  We will keep checking while you can drag & drop the file."));
 
-  // Wait for CSV to appear in downloads
-  let csvPath = await waitForCursorCsv(beforeDownload, DOWNLOAD_TIMEOUT_MS);
+  const csvPath = await waitForCsvPathOrDownload(beforeDownload);
 
   if (csvPath) {
-    console.log(pc.green(`  Found: ${path.basename(csvPath)}`));
+    console.log(pc.green(`\n  ✅ Found: ${path.basename(csvPath)}`));
   } else {
-    console.log(pc.yellow("  Download not detected automatically."));
-    const userPath = await promptForCsvPath();
-
-    if (!userPath) {
-      console.log(pc.gray("  Skipping Cursor data."));
-      return { synced: false, rows: 0, skipped: true };
-    }
-    csvPath = userPath;
+    console.log(pc.gray("  ⏭️  Skipping Cursor data."));
+    return { synced: false, rows: 0, skipped: true };
   }
 
   // Validate the CSV
   if (!validateCursorCsv(csvPath)) {
-    console.log(pc.red("  Invalid CSV file - doesn't look like Cursor export data."));
+    console.log(pc.red("  ❌ Invalid CSV file - doesn't look like Cursor export data."));
     return { synced: false, rows: 0, error: "Invalid CSV format" };
   }
 
@@ -339,7 +422,7 @@ export async function syncCursorCache(): Promise<CursorSyncResult> {
     // Count rows for feedback
     const content = fs.readFileSync(CURSOR_CACHE_FILE, "utf-8");
     const rows = parseCursorCsv(content);
-    console.log(pc.green(`  Imported ${rows.length} Cursor usage events.`));
+    console.log(pc.green("  ✅ Imported Cursor usage events."));
 
     return { synced: true, rows: rows.length };
   } catch (error) {

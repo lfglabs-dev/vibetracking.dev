@@ -52,6 +52,36 @@ function getApiBaseUrl(): string {
   return process.env.VIBETRACKING_API_URL || "https://vibetracking.dev";
 }
 
+const SOURCE_LABELS: Record<SourceType, string> = {
+  cursor: "Cursor",
+  claude: "Claude Code",
+  codex: "Codex",
+  opencode: "OpenCode",
+  gemini: "Gemini",
+  amp: "Amp",
+  droid: "Droid",
+};
+
+const SOURCE_ORDER: SourceType[] = [
+  "cursor",
+  "claude",
+  "codex",
+  "opencode",
+  "gemini",
+  "amp",
+  "droid",
+];
+
+function formatDetectedTools(sources: SourceType[]): string {
+  const ordered = SOURCE_ORDER.filter((source) => sources.includes(source));
+  const remaining = sources.filter((source) => !ordered.includes(source));
+  const finalOrder = ordered.length > 0 ? [...ordered, ...remaining] : sources;
+
+  return finalOrder
+    .map((source) => `✅ ${SOURCE_LABELS[source] ?? source}`)
+    .join("  ");
+}
+
 
 // =============================================================================
 // Data Encoding for Browser Import
@@ -93,7 +123,7 @@ async function main() {
     .command("login")
     .description("Login via browser import flow")
     .action(async () => {
-      console.log(pc.gray("\n  Login happens during the import flow in your browser.\n"));
+      console.log(pc.gray("\n  🔐 Login happens during the import flow in your browser.\n"));
       await openBrowserWithData();
     });
 
@@ -101,7 +131,7 @@ async function main() {
     .command("whoami")
     .description("Show CLI auth status")
     .action(() => {
-      console.log(pc.gray("\n  No CLI auth session. Login happens in the browser during import.\n"));
+      console.log(pc.gray("\n  🔐 No CLI auth session. Login happens in the browser during import.\n"));
     });
 
   program
@@ -110,11 +140,11 @@ async function main() {
     .action(() => {
       const { cleared, path } = clearCursorCache();
       if (cleared) {
-        console.log(pc.green(`\n  Cleared Cursor cache: ${path}\n`));
+        console.log(pc.green(`\n  ✅ Cleared Cursor cache: ${path}\n`));
       } else {
-        console.log(pc.gray(`\n  No Cursor cache found at: ${path}\n`));
+        console.log(pc.gray(`\n  ℹ️  No Cursor cache found at: ${path}\n`));
       }
-      console.log(pc.gray("  No CLI auth session to clear.\n"));
+      console.log(pc.gray("  🔐 No CLI auth session to clear.\n"));
     });
 
   const cursor = program
@@ -125,8 +155,8 @@ async function main() {
     .command("login")
     .description("Open Cursor export page in your browser")
     .action(async () => {
-      console.log(pc.cyan("\n  Opening Cursor export page..."));
-      console.log(pc.gray("  If prompted, log in to Cursor in your browser.\n"));
+      console.log(pc.cyan("\n  🌐 Opening Cursor export page..."));
+      console.log(pc.gray("  🔐 If prompted, log in to Cursor in your browser.\n"));
       await openCursorExportPage();
     });
 
@@ -138,13 +168,13 @@ async function main() {
       const status = getCursorCacheStatus();
       const lastModified = formatDateTime(status.lastModified);
 
-      console.log(pc.magenta("\n  Cursor status"));
-      console.log(pc.gray(`  Installed: ${installed ? "yes" : "no"}`));
-      console.log(pc.gray(`  Cache: ${status.exists ? "present" : "missing"}`));
+      console.log(pc.magenta("\n  🧭 Cursor status"));
+      console.log(pc.gray(`  ✅ Installed: ${installed ? "yes" : "no"}`));
+      console.log(pc.gray(`  💾 Cache: ${status.exists ? "present" : "missing"}`));
       if (status.exists && lastModified) {
-        console.log(pc.gray(`  Last updated: ${lastModified}`));
+        console.log(pc.gray(`  🕒 Last updated: ${lastModified}`));
       }
-      console.log(pc.gray(`  Path: ${status.path}\n`));
+      console.log(pc.gray(`  📁 Path: ${status.path}\n`));
     });
 
   cursor
@@ -153,9 +183,9 @@ async function main() {
     .action(() => {
       const { cleared, path } = clearCursorCache();
       if (cleared) {
-        console.log(pc.green(`\n  Cleared Cursor cache: ${path}\n`));
+        console.log(pc.green(`\n  ✅ Cleared Cursor cache: ${path}\n`));
       } else {
-        console.log(pc.gray(`\n  No Cursor cache found at: ${path}\n`));
+        console.log(pc.gray(`\n  ℹ️  No Cursor cache found at: ${path}\n`));
       }
     });
 
@@ -171,7 +201,7 @@ async function openBrowserWithData(inviterUsername?: string) {
   console.log(pc.magenta("\n  ✨ Vibetracking\n"));
 
   if (inviter) {
-    console.log(pc.magenta(`  Accepting challenge from @${inviter}\n`));
+    console.log(pc.magenta(`  🎯 Accepting challenge from @${inviter}\n`));
   }
 
   // Initialize native module (downloads binary on first run)
@@ -193,14 +223,18 @@ async function openBrowserWithData(inviterUsername?: string) {
     if (cachedCursorRows > 0) {
       const cachedStatus = getCursorCacheStatus();
       const lastModified = formatDateTime(cachedStatus.lastModified);
-      console.log(pc.gray(`  Using cached Cursor data${lastModified ? ` (last updated ${lastModified})` : ""}.`));
+      console.log(
+        pc.gray(
+          `  💾 Using cached Cursor data${lastModified ? ` (last updated ${lastModified})` : ""}.`
+        )
+      );
     }
   }
 
   const spinner = createSpinner({ color: "magenta" });
   spinner.start(pc.gray("Scanning your AI coding adventures..."));
 
-  const localSources: SourceType[] = ['opencode', 'claude', 'codex', 'gemini', 'amp', 'droid'];
+  const localSources: SourceType[] = ["opencode", "claude", "codex", "gemini", "amp", "droid"];
   const localMessages = await parseLocalSourcesAsync({ sources: localSources });
 
   // Check if we have any data - either from local sources or Cursor
@@ -209,14 +243,16 @@ async function openBrowserWithData(inviterUsername?: string) {
 
   if (!hasLocalData && !hasCursorData) {
     spinner.error("No AI coding adventures found yet!");
-    console.log(pc.gray("\n  Supported tools:"));
-    console.log(pc.gray("  - Claude Code (~/.claude/projects/)"));
-    console.log(pc.gray("  - Codex (~/.codex/)"));
-    console.log(pc.gray("  - Cursor (download from cursor.com)"));
-    console.log(pc.gray("  - Gemini (~/.gemini/)"));
-    console.log(pc.gray("  - Amp (~/.ampcode/)"));
+    console.log(pc.gray("\n  🧰 Supported tools:"));
+    console.log(pc.gray("  - 🧠 Claude Code (~/.claude/projects/)"));
+    console.log(pc.gray("  - 📜 Codex (~/.codex/)"));
+    console.log(pc.gray("  - 🧩 OpenCode (~/.local/share/opencode/)"));
+    console.log(pc.gray("  - 🔮 Gemini (~/.gemini/)"));
+    console.log(pc.gray("  - ⚡ Amp (~/.ampcode/)"));
+    console.log(pc.gray("  - 🤖 Droid"));
+    console.log(pc.gray("  - 🧭 Cursor (download from cursor.com)"));
     if (cursorSync.error) {
-      console.log(pc.gray(`\n  Cursor error: ${cursorSync.error}`));
+      console.log(pc.gray(`\n  ⚠️  Cursor error: ${cursorSync.error}`));
     }
     console.log();
     process.exit(1);
@@ -245,13 +281,16 @@ async function openBrowserWithData(inviterUsername?: string) {
   spinner.stop();
 
   // Show summary
-  const totalTokens = graphData.summary.totalTokens;
-  const totalCost = graphData.summary.totalCost;
   const sources = graphData.summary.sources;
+  const detectedToolsLine = formatDetectedTools(sources);
 
-  console.log(pc.yellow(`  🎉 Found ${formatNumber(totalTokens)} tokens from ${sources.length} tool${sources.length > 1 ? "s" : ""}`));
-  console.log(pc.gray(`     You've mass-vibed ${pc.green(formatCurrency(totalCost))} on AI coding!`));
-  console.log(pc.gray(`     Tools: ${sources.join(" · ")}`));
+  console.log(
+    pc.yellow(
+      `\n  🎉 Found data from ${sources.length} tool${sources.length > 1 ? "s" : ""}`
+    )
+  );
+  console.log(pc.gray(`  ${detectedToolsLine}`));
+  console.log(pc.gray("  💸 Your AI coding spend is ready to view."));
   console.log();
 
   // Encode data and open browser
