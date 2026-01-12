@@ -19,32 +19,32 @@ bun add -g vibetracking
 ## Usage
 
 ```bash
-# First run - scans local data and opens browser to import
+# Run - scans local data and opens browser to import
 vibetracking
 
-# Login to sync data automatically
-vibetracking login
-
-# Sync data (after login)
+# Sync data (alias of vibetracking)
 vibetracking sync
 
-# Check current user
+# Login (handled in browser during import)
+vibetracking login
+
+# Check CLI auth status
 vibetracking whoami
 
-# Logout
+# Logout (clears local cache only)
 vibetracking logout
 ```
 
 ### Cursor Integration
 
 ```bash
-# Login to Cursor to include usage data
+# Open Cursor export page (login in browser if needed)
 vibetracking cursor login
 
-# Check Cursor status
+# Check Cursor cache status
 vibetracking cursor status
 
-# Logout from Cursor
+# Clear cached Cursor data
 vibetracking cursor logout
 ```
 
@@ -57,7 +57,7 @@ vibetracking cursor logout
 | OpenCode | `~/.local/share/opencode/` |
 | Gemini | `~/.gemini/` |
 | Amp | `~/.ampcode/` |
-| Cursor | API sync (requires login) |
+| Cursor | Browser CSV export (requires login) |
 
 ## How It Works
 

@@ -99,6 +99,7 @@ npm config set //registry.npmjs.org/:_authToken=YOUR_TOKEN
 Notes:
 - Granular tokens are time-limited and default to 2FA. A publish-capable token with 2FA bypass avoids OTP prompts.
 - If npm prints `Authenticate your account at https://www.npmjs.com/auth/cli/...`, open the link and approve.
+- The publish script may open your browser for verification; approve it.
 
 ### Step 6: Publish All Packages
 
@@ -117,8 +118,16 @@ This script:
 ### Step 7: Verify
 
 ```bash
-# Check npm registry
-npm view vibetracking versions
+# Check npm registry for the exact version
+npm view vibetracking@X.Y.Z version
+npm view @starknetid/vibetracking-core@X.Y.Z version
+npm view @starknetid/vibetracking-core-darwin-arm64@X.Y.Z version
+npm view @starknetid/vibetracking-core-darwin-x64@X.Y.Z version
+npm view @starknetid/vibetracking-core-darwin-universal@X.Y.Z version
+npm view @starknetid/vibetracking-core-linux-x64-gnu@X.Y.Z version
+npm view @starknetid/vibetracking-core-linux-arm64-gnu@X.Y.Z version
+npm view @starknetid/vibetracking-core-win32-x64-msvc@X.Y.Z version
+npm view @starknetid/vibetracking-core-win32-arm64-msvc@X.Y.Z version
 
 # Test fresh install
 bunx vibetracking@X.Y.Z --version

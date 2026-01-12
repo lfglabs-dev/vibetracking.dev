@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import type { TokenContributionData } from "@/lib/graph-types";
 import { normalizeModelId } from "@/lib/normalizeModelId";
 
 // Chunk array into smaller batches for bulk operations
@@ -13,58 +14,6 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 const CHUNK_SIZE = 500; // Rows per batch
-
-// New format from CLI (TokenContributionData)
-interface TokenBreakdown {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  reasoning: number;
-}
-
-interface SourceContribution {
-  source: string;
-  modelId: string;
-  providerId?: string;
-  tokens: TokenBreakdown;
-  cost: number;
-  messages: number;
-}
-
-interface DailyContribution {
-  date: string;
-  totals: {
-    tokens: number;
-    cost: number;
-    messages: number;
-  };
-  intensity: 0 | 1 | 2 | 3 | 4;
-  tokenBreakdown: TokenBreakdown;
-  sources: SourceContribution[];
-}
-
-interface DataSummary {
-  totalTokens: number;
-  totalCost: number;
-  totalDays: number;
-  activeDays: number;
-  averagePerDay: number;
-  maxCostInSingleDay: number;
-  sources: string[];
-  models: string[];
-}
-
-interface TokenContributionData {
-  meta: {
-    generatedAt: string;
-    version: string;
-    dateRange: { start: string; end: string };
-  };
-  summary: DataSummary;
-  years: Array<{ year: string; totalTokens: number; totalCost: number; range: { start: string; end: string } }>;
-  contributions: DailyContribution[];
-}
 
 /**
  * Normalize tool names to match database constraints
@@ -229,8 +178,11 @@ export async function POST(request: Request) {
         // Aggregate for daily_activity by date+tool
         const activityKey = `${contribution.date}:${tool}`;
         const existing = dailyActivityMap.get(activityKey);
+        const sessionIncrement = sourceData.messages; // Proxy for sessions per day/tool
+
         if (existing) {
           existing.message_count += sourceData.messages;
+          existing.session_count += sessionIncrement;
           existing.total_tokens += totalTokens;
           existing.cost += sourceData.cost;
         } else {
@@ -239,7 +191,7 @@ export async function POST(request: Request) {
             date: contribution.date,
             tool,
             message_count: sourceData.messages,
-            session_count: 1,
+            session_count: sessionIncrement,
             total_tokens: totalTokens,
             cost: sourceData.cost,
           });

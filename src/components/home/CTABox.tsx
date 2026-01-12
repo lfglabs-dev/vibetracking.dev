@@ -5,7 +5,7 @@ import { useState } from "react";
 export function CTABox() {
   const [copied, setCopied] = useState(false);
 
-  const command = "bunx vibetracking";
+  const command = "bunx vibetracking@latest";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(command);

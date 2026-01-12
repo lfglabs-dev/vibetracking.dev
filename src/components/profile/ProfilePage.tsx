@@ -490,7 +490,7 @@ export function ProfilePage({
           <div className="card text-center py-12">
             <p className="text-[#232323]/60">No activity data yet</p>
             <p className="text-sm text-[#232323]/40 mt-2">
-              Run <code className="bg-[#F0F69B]/50 px-2 py-1 rounded">bunx vibetracking</code> to import your stats
+              Run <code className="bg-[#F0F69B]/50 px-2 py-1 rounded">bunx vibetracking@latest</code> to import your stats
             </p>
           </div>
         )}

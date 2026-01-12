@@ -14,8 +14,12 @@ import open from "open";
 import pako from "pako";
 
 import {
+  clearCursorCache,
+  getCursorCacheStatus,
   syncCursorCache,
   isCursorInstalled,
+  openCursorExportPage,
+  readCursorMessagesFromCache,
   type CursorSyncResult,
 } from "./cursor.js";
 import {
@@ -37,6 +41,11 @@ function formatNumber(num: number): string {
 
 function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`;
+}
+
+function formatDateTime(date?: Date): string | undefined {
+  if (!date) return undefined;
+  return date.toLocaleString();
 }
 
 function getApiBaseUrl(): string {
@@ -72,6 +81,84 @@ async function main() {
       await openBrowserWithData(options.inviter);
     });
 
+  program
+    .command("sync")
+    .description("Sync data (same as running vibetracking)")
+    .option("-i, --inviter <username>", "Accept a challenge from a user (e.g., @username)")
+    .action(async (options) => {
+      await openBrowserWithData(options.inviter);
+    });
+
+  program
+    .command("login")
+    .description("Login via browser import flow")
+    .action(async () => {
+      console.log(pc.gray("\n  Login happens during the import flow in your browser.\n"));
+      await openBrowserWithData();
+    });
+
+  program
+    .command("whoami")
+    .description("Show CLI auth status")
+    .action(() => {
+      console.log(pc.gray("\n  No CLI auth session. Login happens in the browser during import.\n"));
+    });
+
+  program
+    .command("logout")
+    .description("Clear local CLI state")
+    .action(() => {
+      const { cleared, path } = clearCursorCache();
+      if (cleared) {
+        console.log(pc.green(`\n  Cleared Cursor cache: ${path}\n`));
+      } else {
+        console.log(pc.gray(`\n  No Cursor cache found at: ${path}\n`));
+      }
+      console.log(pc.gray("  No CLI auth session to clear.\n"));
+    });
+
+  const cursor = program
+    .command("cursor")
+    .description("Cursor integration helpers");
+
+  cursor
+    .command("login")
+    .description("Open Cursor export page in your browser")
+    .action(async () => {
+      console.log(pc.cyan("\n  Opening Cursor export page..."));
+      console.log(pc.gray("  If prompted, log in to Cursor in your browser.\n"));
+      await openCursorExportPage();
+    });
+
+  cursor
+    .command("status")
+    .description("Show Cursor cache status")
+    .action(() => {
+      const installed = isCursorInstalled();
+      const status = getCursorCacheStatus();
+      const lastModified = formatDateTime(status.lastModified);
+
+      console.log(pc.magenta("\n  Cursor status"));
+      console.log(pc.gray(`  Installed: ${installed ? "yes" : "no"}`));
+      console.log(pc.gray(`  Cache: ${status.exists ? "present" : "missing"}`));
+      if (status.exists && lastModified) {
+        console.log(pc.gray(`  Last updated: ${lastModified}`));
+      }
+      console.log(pc.gray(`  Path: ${status.path}\n`));
+    });
+
+  cursor
+    .command("logout")
+    .description("Clear cached Cursor data")
+    .action(() => {
+      const { cleared, path } = clearCursorCache();
+      if (cleared) {
+        console.log(pc.green(`\n  Cleared Cursor cache: ${path}\n`));
+      } else {
+        console.log(pc.gray(`\n  No Cursor cache found at: ${path}\n`));
+      }
+    });
+
   await program.parseAsync();
 }
 
@@ -100,6 +187,15 @@ async function openBrowserWithData(inviterUsername?: string) {
   if (cursorInstalled) {
     cursorSync = await syncCursorCache();
   }
+  let cachedCursorRows = 0;
+  if (!cursorSync.synced) {
+    cachedCursorRows = readCursorMessagesFromCache().length;
+    if (cachedCursorRows > 0) {
+      const cachedStatus = getCursorCacheStatus();
+      const lastModified = formatDateTime(cachedStatus.lastModified);
+      console.log(pc.gray(`  Using cached Cursor data${lastModified ? ` (last updated ${lastModified})` : ""}.`));
+    }
+  }
 
   const spinner = createSpinner({ color: "magenta" });
   spinner.start(pc.gray("Scanning your AI coding adventures..."));
@@ -109,7 +205,7 @@ async function openBrowserWithData(inviterUsername?: string) {
 
   // Check if we have any data - either from local sources or Cursor
   const hasLocalData = localMessages && localMessages.messages.length > 0;
-  const hasCursorData = cursorSync.synced && cursorSync.rows > 0;
+  const hasCursorData = (cursorSync.synced && cursorSync.rows > 0) || cachedCursorRows > 0;
 
   if (!hasLocalData && !hasCursorData) {
     spinner.error("No AI coding adventures found yet!");
@@ -143,7 +239,7 @@ async function openBrowserWithData(inviterUsername?: string) {
   const messagesForGraph = localMessages ?? emptyParsedMessages;
   const graphData = await finalizeGraphAsync({
     localMessages: messagesForGraph,
-    includeCursor: cursorSync.synced,
+    includeCursor: cursorSync.synced || cachedCursorRows > 0,
   });
 
   spinner.stop();

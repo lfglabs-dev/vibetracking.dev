@@ -1,4 +1,5 @@
 import pako from "pako";
+import type { TokenContributionData } from "@/lib/graph-types";
 
 export function formatNumber(num: number): string {
   if (num >= 1_000_000_000) {
@@ -82,7 +83,7 @@ function base64urlToUint8Array(base64url: string): Uint8Array {
   return bytes;
 }
 
-export function decodeImportData(encoded: string): ImportData | null {
+export function decodeImportData(encoded: string): TokenContributionData | null {
   try {
     // Decode base64url to Uint8Array (works in both browser and Node.js)
     const compressed = base64urlToUint8Array(encoded);
@@ -121,32 +122,7 @@ export interface SessionInfo {
   startedAt: string;
 }
 
-export interface ToolData {
-  tool: "claude_code" | "codex" | "cursor";
-  dailyActivity: DailyActivity[];
-  modelUsage: ModelUsage[];
-  longestSession?: SessionInfo;
-  stats: {
-    totalTokens: number;
-    totalSessions: number;
-    totalMessages: number;
-    longestSessionMs: number;
-    firstActivityDate?: string;
-    lastActivityDate?: string;
-  };
-  hourCounts?: Record<string, number>;
-}
-
-export interface ImportData {
-  syncToken?: string;
-  timestamp: number;
-  version: number;
-  tools: {
-    claude_code?: ToolData;
-    codex?: ToolData;
-    cursor?: ToolData;
-  };
-}
+export type ImportData = TokenContributionData;
 
 // Fun fact metrics calculation utilities
 // Constants for calculations - RESEARCH-BASED estimates
@@ -260,33 +236,22 @@ export function getAggregatedStats(data: ImportData): {
   favoriteModel: string | null;
   longestSessionMs: number;
 } {
-  let totalTokens = 0;
-  let totalSessions = 0;
+  const totalTokens = data.summary?.totalTokens ?? 0;
+  const totalSessions = data.summary?.activeDays ?? 0;
   let totalMessages = 0;
-  let longestSessionMs = 0;
-  const toolsFound: string[] = [];
+  const toolsFound = Array.from(new Set(data.summary?.sources ?? []));
   const modelTokens: Record<string, number> = {};
 
-  for (const [toolName, toolData] of Object.entries(data.tools)) {
-    if (toolData) {
-      toolsFound.push(toolName);
-      totalTokens += toolData.stats.totalTokens;
-      totalSessions += toolData.stats.totalSessions;
-      totalMessages += toolData.stats.totalMessages;
-
-      if (toolData.stats.longestSessionMs > longestSessionMs) {
-        longestSessionMs = toolData.stats.longestSessionMs;
-      }
-
-      // Aggregate model usage
-      for (const model of toolData.modelUsage) {
-        const total =
-          model.inputTokens +
-          model.outputTokens +
-          (model.cacheReadTokens || 0) +
-          (model.cacheCreationTokens || 0);
-        modelTokens[model.model] = (modelTokens[model.model] || 0) + total;
-      }
+  for (const contribution of data.contributions ?? []) {
+    totalMessages += contribution.totals?.messages ?? 0;
+    for (const source of contribution.sources ?? []) {
+      const total =
+        source.tokens.input +
+        source.tokens.output +
+        source.tokens.cacheRead +
+        source.tokens.cacheWrite +
+        source.tokens.reasoning;
+      modelTokens[source.modelId] = (modelTokens[source.modelId] || 0) + total;
     }
   }
 
@@ -306,6 +271,6 @@ export function getAggregatedStats(data: ImportData): {
     totalMessages,
     toolsFound,
     favoriteModel,
-    longestSessionMs,
+    longestSessionMs: 0,
   };
 }

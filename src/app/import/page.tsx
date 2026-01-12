@@ -94,13 +94,13 @@ function ImportPageContent() {
       }
 
       if (!encodedData) {
-        setError("No data found. Please run `bunx vibetracking` first.");
+        setError("No data found. Please run `bunx vibetracking@latest` first.");
         return;
       }
 
       const decoded = decodeImportData(encodedData);
       if (!decoded) {
-        setError("Invalid data format. Please run `bunx vibetracking` again.");
+        setError("Invalid data format. Please run `bunx vibetracking@latest` again.");
         return;
       }
 

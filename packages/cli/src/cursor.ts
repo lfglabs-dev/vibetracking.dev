@@ -531,6 +531,22 @@ export function getCursorCacheStatus(): { exists: boolean; lastModified?: Date; 
 }
 
 /**
+ * Clear cached Cursor CSV (local only)
+ */
+export function clearCursorCache(): { cleared: boolean; path: string } {
+  if (!fs.existsSync(CURSOR_CACHE_FILE)) {
+    return { cleared: false, path: CURSOR_CACHE_FILE };
+  }
+
+  try {
+    fs.unlinkSync(CURSOR_CACHE_FILE);
+    return { cleared: true, path: CURSOR_CACHE_FILE };
+  } catch {
+    return { cleared: false, path: CURSOR_CACHE_FILE };
+  }
+}
+
+/**
  * Read cached Cursor messages for Rust module integration
  */
 export function readCursorMessagesFromCache(): CursorUnifiedMessage[] {

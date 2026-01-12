@@ -11,8 +11,13 @@ export function StatsPreview({ data }: StatsPreviewProps) {
 
   const toolLabels: Record<string, { icon: string; label: string; color: string }> = {
     claude_code: { icon: "🤖", label: "Claude Code", color: "bg-[#FEA6CC]" },
+    claude: { icon: "🧠", label: "Claude", color: "bg-[#FEA6CC]" },
     codex: { icon: "💻", label: "Codex", color: "bg-[#B3D8F5]" },
     cursor: { icon: "📝", label: "Cursor", color: "bg-[#F0F69B]" },
+    opencode: { icon: "📦", label: "OpenCode", color: "bg-[#AAE7C0]" },
+    gemini: { icon: "✨", label: "Gemini", color: "bg-[#F7C59F]" },
+    amp: { icon: "⚡", label: "Amp", color: "bg-[#C5B3F5]" },
+    droid: { icon: "🤖", label: "Droid", color: "bg-[#D9D9D9]" },
   };
 
   return (
@@ -24,7 +29,11 @@ export function StatsPreview({ data }: StatsPreviewProps) {
         </h3>
         <div className="flex flex-wrap gap-2">
           {stats.toolsFound.map((tool) => {
-            const toolInfo = toolLabels[tool];
+            const toolInfo = toolLabels[tool] ?? {
+              icon: "✨",
+              label: tool,
+              color: "bg-[#E6E6E6]",
+            };
             return (
               <span
                 key={tool}
@@ -71,7 +80,7 @@ export function StatsPreview({ data }: StatsPreviewProps) {
             Longest Session
           </div>
           <div className="text-3xl font-black text-[#232323]">
-            {formatDuration(stats.longestSessionMs)}
+            {stats.longestSessionMs > 0 ? formatDuration(stats.longestSessionMs) : "N/A"}
           </div>
         </div>
       </div>

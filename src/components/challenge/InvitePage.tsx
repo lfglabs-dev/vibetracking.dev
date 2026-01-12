@@ -31,7 +31,7 @@ const pageStickers = [
 export function InvitePage({ challenger }: InvitePageProps) {
   const challengerName = challenger.displayName || challenger.username;
   const [copied, setCopied] = useState(false);
-  const cliCommand = `bunx vibetracking -i ${challenger.username}`;
+  const cliCommand = `bunx vibetracking@latest -i ${challenger.username}`;
 
   const handleCopy = async () => {
     try {

@@ -598,11 +598,21 @@ When users install `vibetracking`, npm pulls only the matching platform package.
 4. **Wait for CI** to build artifacts (`.github/workflows/release.yml`).
 5. **Download artifacts**: `gh run download <RUN_ID> -D ./artifacts`
 6. **Authenticate npm**:
-   - `npm login` (opens browser)
+   - `npm login` (opens browser for verification)
    - If using a token: `npm config set //registry.npmjs.org/:_authToken=...`
-   - First publish may prompt a browser auth URL; approve it.
 7. **Publish all packages** (bash 5 on macOS):
    - `/opt/homebrew/bin/bash ./scripts/publish-all.sh`
-8. **Verify**: `bunx vibetracking@X.Y.Z --version`
+   - It will open your browser for verification; approve it.
+8. **Verify** that the right packages are published:
+   - `npm view vibetracking@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core-darwin-arm64@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core-darwin-x64@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core-darwin-universal@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core-linux-x64-gnu@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core-linux-arm64-gnu@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core-win32-x64-msvc@X.Y.Z version`
+   - `npm view @starknetid/vibetracking-core-win32-arm64-msvc@X.Y.Z version`
+   - `bunx vibetracking@X.Y.Z --version`
 
 See the `publish-cli` skill for detailed steps and troubleshooting. Trigger terms: publish, release, npm, cli, version, tag.
