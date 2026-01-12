@@ -63,6 +63,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@starknetid/vibetracking-core':
+        specifier: 0.2.2
+        version: link:../core
       clipboardy:
         specifier: ^5.0.2
         version: 5.0.2

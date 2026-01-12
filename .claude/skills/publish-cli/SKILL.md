@@ -41,21 +41,16 @@ These packages already exist on npm - we publish new versions to them:
 
 ### Step 1: Update Version Numbers
 
-Use the napi version command to sync all package versions:
+Update these in lockstep:
 
+- `packages/core/package.json` (and its `optionalDependencies`)
+- `packages/core/npm/*/package.json`
+- `packages/cli/package.json` (and dependency on `@starknetid/vibetracking-core`)
+
+Optional (sync/normalize npm subpackages after updating core version):
 ```bash
 cd packages/core
-pnpm napi version -p X.Y.Z
-```
-
-This updates:
-- `packages/core/package.json`
-- All `packages/core/npm/*/package.json` files
-
-Also update CLI version manually:
-```bash
-# Edit packages/cli/package.json
-# Change "version": "X.Y.Z"
+pnpm --package=@napi-rs/cli dlx napi version
 ```
 
 ### Step 2: Commit and Push Tag
@@ -88,12 +83,29 @@ Once CI completes, download the built binaries:
 gh run download <RUN_ID> -D ./artifacts
 ```
 
-### Step 5: Publish All Packages
+### Step 5: Authenticate npm
+
+You need an npm session before publishing:
+
+```bash
+npm login
+```
+
+If using a token, set it explicitly:
+```bash
+npm config set //registry.npmjs.org/:_authToken=YOUR_TOKEN
+```
+
+Notes:
+- Granular tokens are time-limited and default to 2FA. A publish-capable token with 2FA bypass avoids OTP prompts.
+- If npm prints `Authenticate your account at https://www.npmjs.com/auth/cli/...`, open the link and approve.
+
+### Step 6: Publish All Packages
 
 Run the publish script:
 
 ```bash
-./scripts/publish-all.sh
+/opt/homebrew/bin/bash ./scripts/publish-all.sh
 ```
 
 This script:
@@ -102,9 +114,7 @@ This script:
 3. Publishes the main core package
 4. Builds and publishes the CLI package
 
-**Note**: You'll be prompted for npm OTP if 2FA is enabled on your account.
-
-### Step 6: Verify
+### Step 7: Verify
 
 ```bash
 # Check npm registry
@@ -145,6 +155,11 @@ npm view @starknetid/vibetracking-core versions
 ```
 
 Bump to the next version if needed.
+
+If you see auth errors:
+
+- `EOTP`: npm requires interactive auth (approve the browser URL) or a 2FA-bypass publish token.
+- `Access token expired or revoked`: re-login or set a fresh token, then rerun the publish script.
 
 ### Binary Not Loading
 

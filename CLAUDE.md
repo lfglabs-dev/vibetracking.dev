@@ -577,31 +577,32 @@ Cache TTL: 24 hours
 
 ## CLI Publishing
 
-### Hybrid Publishing Model
+### npm Optional Dependencies Model (current)
 
-The CLI uses a hybrid publishing approach:
+The CLI uses the npm optional dependencies pattern (like esbuild/swc):
 
-- **npm**: Only the `vibetracking` CLI package is published (JavaScript wrapper)
-- **GitHub Releases**: Native binaries (`.node` files) are hosted as release assets
-- **First-run download**: CLI automatically downloads the correct binary on first run
+- **npm**: `vibetracking` (CLI JS package)
+- **npm**: `@starknetid/vibetracking-core` (main package with optional deps)
+- **npm**: `@starknetid/vibetracking-core-*` (7 platform-specific binary packages)
 
-This simplifies publishing to just 1 npm package instead of 9 (CLI + core + 7 platform packages).
+When users install `vibetracking`, npm pulls only the matching platform package.
 
-### How It Works
+### Publishing Workflow (current)
 
-1. User runs `bunx vibetracking`
-2. CLI checks for binary in `~/.vibetracking/bin/{version}/`
-3. If not found, downloads from GitHub release
-4. Binary is cached for future runs
+1. **Bump versions**:
+   - `packages/core/package.json` (and its `optionalDependencies`)
+   - `packages/core/npm/*/package.json`
+   - `packages/cli/package.json` (and dependency on `@starknetid/vibetracking-core`)
+2. **Commit + push** the version change to `main`.
+3. **Tag**: `git tag cli-vX.Y.Z && git push origin cli-vX.Y.Z`
+4. **Wait for CI** to build artifacts (`.github/workflows/release.yml`).
+5. **Download artifacts**: `gh run download <RUN_ID> -D ./artifacts`
+6. **Authenticate npm**:
+   - `npm login` (opens browser)
+   - If using a token: `npm config set //registry.npmjs.org/:_authToken=...`
+   - First publish may prompt a browser auth URL; approve it.
+7. **Publish all packages** (bash 5 on macOS):
+   - `/opt/homebrew/bin/bash ./scripts/publish-all.sh`
+8. **Verify**: `bunx vibetracking@X.Y.Z --version`
 
-### Publishing Workflow
-
-1. **Bump version** in `packages/cli/package.json`
-2. **Update BINARY_VERSION** in `packages/cli/src/native.ts` and `native-runner.ts`
-3. **Commit and push** the version change
-4. **Create and push tag**: `git tag cli-vX.Y.Z && git push origin cli-vX.Y.Z`
-5. **Wait for CI** to build and upload binaries to GitHub release
-6. **Publish CLI locally**: `cd packages/cli && pnpm build && npm publish --access public`
-7. **Verify**: `bunx vibetracking@latest --version`
-
-See the `publish-cli` skill for detailed steps. Trigger terms: publish, release, npm, cli, version, tag.
+See the `publish-cli` skill for detailed steps and troubleshooting. Trigger terms: publish, release, npm, cli, version, tag.
