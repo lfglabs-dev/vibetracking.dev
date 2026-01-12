@@ -1,0 +1,17 @@
+export const MODEL_RELEASES = [
+  { date: "2024-03-04", label: "Claude 3", color: "#FF6B2B" },
+  { date: "2024-05-13", label: "GPT-4o", color: "#10A37F" },
+  { date: "2024-06-20", label: "Claude 3.5 Sonnet", color: "#FF6B2B" },
+  { date: "2024-09-12", label: "o1", color: "#10A37F" },
+  { date: "2024-10-22", label: "Claude 3.5 Sonnet v2", color: "#FF6B2B" },
+  { date: "2024-12-11", label: "Gemini 2.0", color: "#4285F4" },
+  { date: "2024-12-26", label: "DeepSeek V3", color: "#6366F1" },
+  { date: "2025-01-20", label: "DeepSeek R1", color: "#6366F1" },
+  { date: "2025-02-24", label: "Claude 3.7", color: "#FF6B2B" },
+  { date: "2025-02-27", label: "GPT-4.5", color: "#10A37F" },
+  { date: "2025-04-05", label: "Llama 4", color: "#0668E1" },
+  { date: "2025-08-07", label: "GPT-5", color: "#10A37F" },
+  { date: "2025-11-17", label: "Gemini 3", color: "#4285F4" },
+  { date: "2025-11-25", label: "Claude 4.5 Opus", color: "#FF6B2B" },
+  { date: "2025-12-11", label: "GPT-5.2", color: "#10A37F" },
+];

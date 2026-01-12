@@ -1,60 +1,123 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatNumber } from "@/lib/utils";
+import { fetchGitHubStats, type GitHubStats } from "@/lib/github";
 import {
-  fetchGitHubStats,
-  calculateEfficiencyRatios,
-  type GitHubStats,
-} from "@/lib/github";
-import { DualHeatmap, GITHUB_COLORS } from "@/components/ui/charts";
-
-interface DailyActivity {
-  date: string;
-  totalTokens: number;
-}
+  ChartCard,
+  GITHUB_COLORS,
+  LineChart,
+} from "@/components/ui/charts";
+import {
+  TimeframeSelector,
+  filterByTimeframe,
+  type Timeframe,
+} from "./TimeframeSelector";
+import { MODEL_RELEASES } from "@/lib/model-releases";
 
 interface GitHubStatsSectionProps {
   username: string;
-  totalTokens: number;
-  dailyActivity: DailyActivity[];
 }
 
-// Skeleton loader for the KPI cards
+interface DailyTotalPoint {
+  date: string;
+  total: number;
+}
+
+// Skeleton loader for the charts
 function StatsSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="card text-center">
-            <div className="h-8 bg-[#232323]/10 rounded mb-2 mx-auto w-16" />
-            <div className="h-4 bg-[#232323]/10 rounded mx-auto w-20" />
-          </div>
-        ))}
-      </div>
-      <div className="card mb-6">
-        <div className="h-6 bg-[#232323]/10 rounded w-32 mb-4" />
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i}>
-              <div className="h-4 bg-[#232323]/10 rounded w-40 mb-2" />
-              <div className="h-3 bg-[#232323]/10 rounded w-full" />
-            </div>
-          ))}
+      {[...Array(3)].map((_, index) => (
+        <div key={index} className="card mb-6 last:mb-0">
+          <div className="h-6 bg-[#232323]/10 rounded w-40 mb-4" />
+          <div className="h-60 bg-[#232323]/10 rounded" />
         </div>
-      </div>
+      ))}
     </div>
   );
 }
 
-export function GitHubStatsSection({
-  username,
-  totalTokens,
-  dailyActivity,
-}: GitHubStatsSectionProps) {
+function buildDateRange(start: string, end: string): string[] {
+  const range: string[] = [];
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return range;
+  }
+
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    range.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+
+  return range;
+}
+
+function buildDailyTotals(stats: GitHubStats): DailyTotalPoint[] {
+  const sortedDays = [...(stats.contributionCalendar || [])].sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+
+  if (sortedDays.length === 0) return [];
+
+  const fullRange = buildDateRange(
+    sortedDays[0].date,
+    sortedDays[sortedDays.length - 1].date
+  );
+
+  const totalMap = new Map(sortedDays.map((day) => [day.date, day.count]));
+
+  return fullRange.map((date) => ({
+    date,
+    total: totalMap.get(date) || 0,
+  }));
+}
+
+function buildCumulativeSeries(data: DailyTotalPoint[]): Array<{ date: string; total: number }> {
+  let running = 0;
+  return data.map((point) => {
+    running += point.total;
+    return { date: point.date, total: running };
+  });
+}
+
+type ModelFamily = "claude" | "gpt" | "gemini";
+
+const MODEL_FAMILY_CONFIG: Record<ModelFamily, { label: string; color: string; match: (label: string) => boolean }> = {
+  claude: {
+    label: "Claude",
+    color: "#FF6B2B",
+    match: (label) => label.startsWith("Claude"),
+  },
+  gpt: {
+    label: "GPT",
+    color: "#10A37F",
+    match: (label) => label.startsWith("GPT") || label === "o1",
+  },
+  gemini: {
+    label: "Gemini",
+    color: "#4285F4",
+    match: (label) => label.startsWith("Gemini"),
+  },
+};
+
+export function GitHubStatsSection({ username }: GitHubStatsSectionProps) {
   const [githubStats, setGithubStats] = useState<GitHubStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>("1y");
+  const [enabledModels, setEnabledModels] = useState<Record<ModelFamily, boolean>>({
+    claude: true,
+    gpt: true,
+    gemini: true,
+  });
+
+  const toggleModel = (model: ModelFamily) => {
+    setEnabledModels((prev) => ({ ...prev, [model]: !prev[model] }));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -90,6 +153,77 @@ export function GitHubStatsSection({
     };
   }, [username]);
 
+  const dailyTotals = useMemo(
+    () => (githubStats ? buildDailyTotals(githubStats) : []),
+    [githubStats]
+  );
+
+  const filteredTotals = useMemo(
+    () => filterByTimeframe(dailyTotals, timeframe),
+    [dailyTotals, timeframe]
+  );
+
+  const hasAnyTotals = dailyTotals.length > 0;
+  const hasFilteredTotals = filteredTotals.length > 0;
+
+  const dateRange = useMemo(() => {
+    if (!hasFilteredTotals) return null;
+    const start = filteredTotals[0]?.date;
+    const end = filteredTotals[filteredTotals.length - 1]?.date;
+    if (!start || !end) return null;
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const spanDays = Math.max(
+      1,
+      Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000))
+    );
+    return { start, end, spanDays };
+  }, [filteredTotals, hasFilteredTotals]);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return dateStr;
+
+    const range = dateRange;
+    const showYear = range
+      ? new Date(range.start).getFullYear() !== new Date(range.end).getFullYear()
+      : false;
+
+    if (range && range.spanDays > 365) {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit",
+      });
+    }
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      ...(showYear ? { year: "2-digit" } : {}),
+    });
+  };
+
+  const referenceLines = useMemo(() => {
+    if (!hasFilteredTotals || !dateRange) return [];
+    // Filter by date range and enabled model families
+    return MODEL_RELEASES.filter((release) => {
+      if (release.date < dateRange.start || release.date > dateRange.end) return false;
+      // Check if any enabled model family matches this release
+      return (Object.entries(enabledModels) as [ModelFamily, boolean][]).some(
+        ([family, enabled]) => enabled && MODEL_FAMILY_CONFIG[family].match(release.label)
+      );
+    }).map((release) => ({
+      x: release.date,
+      label: release.label,
+      color: release.color,
+    }));
+  }, [dateRange, hasFilteredTotals, enabledModels]);
+
+  const cumulativeSeries = useMemo(
+    () => buildCumulativeSeries(filteredTotals),
+    [filteredTotals]
+  );
+
   if (loading) {
     return <StatsSkeleton />;
   }
@@ -120,191 +254,94 @@ export function GitHubStatsSection({
     );
   }
 
-  const efficiency = calculateEfficiencyRatios(totalTokens, githubStats);
+  if (!hasAnyTotals) {
+    return (
+      <div className="card text-center py-10 text-[#232323]/60">
+        No GitHub activity yet.
+      </div>
+    );
+  }
 
-  // Calculate max values for progress bars
-  const maxTokensPerMetric = Math.max(
-    efficiency.tokensPerContribution,
-    efficiency.tokensPerCommit,
-    efficiency.tokensPerPR || 1
-  );
-
-  // Prepare data for dual heatmap
-  const githubCalendarData = githubStats.contributionCalendar.map((day) => ({
-    date: day.date,
-    value: day.count,
-  }));
-
-  // Aggregate daily activity by date for AI usage
-  const aiActivityMap = new Map<string, number>();
-  dailyActivity.forEach((activity) => {
-    const existing = aiActivityMap.get(activity.date) || 0;
-    aiActivityMap.set(activity.date, existing + activity.totalTokens);
-  });
-  const aiCalendarData = Array.from(aiActivityMap.entries()).map(
-    ([date, tokens]) => ({
-      date,
-      value: tokens,
-    })
-  );
+  if (!hasFilteredTotals) {
+    const latestDate = dailyTotals[dailyTotals.length - 1]?.date;
+    return (
+      <div className="card text-center py-10 text-[#232323]/60">
+        <p>No activity in the selected timeframe.</p>
+        {latestDate && (
+          <p className="text-xs text-[#232323]/40 mt-2">
+            Latest activity in data: {formatDate(latestDate)}
+          </p>
+        )}
+        {githubStats.partial && (
+          <p className="text-xs text-[#232323]/40 mt-2">
+            Showing public activity only. Add GITHUB_PAT for full history.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* GitHub Stats KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="card text-center">
-          <div
-            className="text-3xl font-black"
-            style={{ color: GITHUB_COLORS.contributions }}
-          >
-            {formatNumber(githubStats.totalContributions)}
-          </div>
-          <div className="text-sm text-[#232323]/60">Contributions</div>
-          <div className="text-xs text-[#232323]/40">all time</div>
-        </div>
-        <div className="card text-center">
-          <div
-            className="text-3xl font-black"
-            style={{ color: GITHUB_COLORS.commits }}
-          >
-            {formatNumber(githubStats.commits)}
-          </div>
-          <div className="text-sm text-[#232323]/60">Commits</div>
-          <div className="text-xs text-[#232323]/40">all time</div>
-        </div>
-        <div className="card text-center">
-          <div
-            className="text-3xl font-black"
-            style={{ color: GITHUB_COLORS.pullRequests }}
-          >
-            {formatNumber(githubStats.pullRequests)}
-          </div>
-          <div className="text-sm text-[#232323]/60">PRs</div>
-          <div className="text-xs text-[#232323]/40">all time</div>
-        </div>
-        <div className="card text-center">
-          <div
-            className="text-3xl font-black"
-            style={{ color: GITHUB_COLORS.reviews }}
-          >
-            {formatNumber(githubStats.reviews)}
-          </div>
-          <div className="text-sm text-[#232323]/60">Reviews</div>
-          <div className="text-xs text-[#232323]/40">all time</div>
-        </div>
+      <ChartCard
+        title="GitHub Activity"
+        subtitle="Cumulative contributions over time"
+        rightSlot={<TimeframeSelector value={timeframe} onChange={setTimeframe} />}
+        height={280}
+      >
+        <LineChart
+          data={cumulativeSeries}
+          lines={[
+            {
+              dataKey: "total",
+              color: GITHUB_COLORS.contributions,
+              label: "Total contributions",
+            },
+          ]}
+          xAxisKey="date"
+          xAxisFormatter={formatDate}
+          yAxisFormatter={(value) => formatNumber(value)}
+          tooltipFormatter={(value) => {
+            const numericValue = typeof value === "number" ? value : Number(value);
+            return [formatNumber(Number.isFinite(numericValue) ? numericValue : 0), "Total contributions"];
+          }}
+          tooltipLabelFormatter={formatDate}
+          showLegend={false}
+          referenceLines={referenceLines}
+          xAxisTickCount={8}
+        />
+      </ChartCard>
+
+      {/* Model release filter */}
+      <div className="flex items-center justify-center gap-4 mt-3">
+        <span className="text-xs text-[#232323]/60">Show releases:</span>
+        {(Object.entries(MODEL_FAMILY_CONFIG) as [ModelFamily, typeof MODEL_FAMILY_CONFIG[ModelFamily]][]).map(
+          ([key, config]) => (
+            <label
+              key={key}
+              className="flex items-center gap-1.5 cursor-pointer text-xs"
+            >
+              <input
+                type="checkbox"
+                checked={enabledModels[key]}
+                onChange={() => toggleModel(key)}
+                className="w-3.5 h-3.5 rounded border-[#232323]/20 accent-current"
+                style={{ accentColor: config.color }}
+              />
+              <span
+                className="font-medium"
+                style={{ color: enabledModels[key] ? config.color : "#232323" }}
+              >
+                {config.label}
+              </span>
+            </label>
+          )
+        )}
       </div>
 
-      {/* AI Efficiency Card */}
-      <div className="card bg-gradient-to-br from-[#238636]/10 to-[#AAE7C0]/10 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold">AI Efficiency</h3>
-          <span
-            className={`tag ${
-              efficiency.efficiencyLabel === "Efficient Shipper"
-                ? "tag-green"
-                : efficiency.efficiencyLabel === "Balanced Builder"
-                ? "tag-blue"
-                : "tag-pink"
-            }`}
-          >
-            {efficiency.efficiencyLabel}
-          </span>
-        </div>
-        <div className="space-y-4">
-          {/* Tokens per Contribution */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[#232323]/60">
-                Tokens per Contribution
-              </span>
-              <span className="text-lg font-black text-[#238636]">
-                {formatNumber(Math.round(efficiency.tokensPerContribution))}
-              </span>
-            </div>
-            <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${Math.min(
-                    (efficiency.tokensPerContribution / maxTokensPerMetric) *
-                      100,
-                    100
-                  )}%`,
-                  backgroundColor: GITHUB_COLORS.contributions,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Tokens per Commit */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[#232323]/60">
-                Tokens per Commit
-              </span>
-              <span className="text-lg font-black text-[#3fb950]">
-                {formatNumber(Math.round(efficiency.tokensPerCommit))}
-              </span>
-            </div>
-            <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${Math.min(
-                    (efficiency.tokensPerCommit / maxTokensPerMetric) * 100,
-                    100
-                  )}%`,
-                  backgroundColor: GITHUB_COLORS.commits,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Tokens per PR */}
-          {githubStats.pullRequests > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-[#232323]/60">Tokens per PR</span>
-                <span className="text-lg font-black text-[#8250df]">
-                  {formatNumber(Math.round(efficiency.tokensPerPR))}
-                </span>
-              </div>
-              <div className="h-3 bg-[#232323]/10 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(
-                      (efficiency.tokensPerPR / maxTokensPerMetric) * 100,
-                      100
-                    )}%`,
-                    backgroundColor: GITHUB_COLORS.pullRequests,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Dual Heatmap Comparison */}
-      <DualHeatmap
-        left={{
-          data: githubCalendarData,
-          label: "GitHub Contributions",
-          color: GITHUB_COLORS.calendar,
-        }}
-        right={{
-          data: aiCalendarData,
-          label: "AI Tool Usage",
-          color: "#AAE7C0", // vibetracking green
-        }}
-      />
-
-      {/* Partial data notice */}
       {githubStats.partial && (
-        <p className="text-xs text-[#232323]/40 text-center mt-4">
-          Showing recent public activity. Full contribution data requires GitHub
-          authentication.
+        <p className="text-xs text-[#232323]/40 text-center mt-3">
+          Showing public activity only. Add GITHUB_PAT for full history.
         </p>
       )}
     </>
