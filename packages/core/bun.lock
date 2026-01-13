@@ -9,13 +9,13 @@
         "ava": "^6.1.0",
       },
       "optionalDependencies": {
-        "@starknetid/vibetracking-core-darwin-arm64": "0.2.3",
-        "@starknetid/vibetracking-core-darwin-universal": "0.2.3",
-        "@starknetid/vibetracking-core-darwin-x64": "0.2.3",
-        "@starknetid/vibetracking-core-linux-arm64-gnu": "0.2.3",
-        "@starknetid/vibetracking-core-linux-x64-gnu": "0.2.3",
-        "@starknetid/vibetracking-core-win32-arm64-msvc": "0.2.3",
-        "@starknetid/vibetracking-core-win32-x64-msvc": "0.2.3",
+        "@starknetid/vibetracking-core-darwin-arm64": "0.2.4",
+        "@starknetid/vibetracking-core-darwin-universal": "0.2.4",
+        "@starknetid/vibetracking-core-darwin-x64": "0.2.4",
+        "@starknetid/vibetracking-core-linux-arm64-gnu": "0.2.4",
+        "@starknetid/vibetracking-core-linux-x64-gnu": "0.2.4",
+        "@starknetid/vibetracking-core-win32-arm64-msvc": "0.2.4",
+        "@starknetid/vibetracking-core-win32-x64-msvc": "0.2.4",
       },
     },
   },
@@ -204,19 +204,19 @@
 
     "@sindresorhus/merge-streams": ["@sindresorhus/merge-streams@2.3.0", "", {}, "sha512-LtoMMhxAlorcGhmFYI+LhPgbPZCkgP6ra1YL604EeF6U98pLlQ3iWIGMdWSC+vWmPBWBNgmDBAhnAobLROJmwg=="],
 
-    "@starknetid/vibetracking-core-darwin-arm64": ["@starknetid/vibetracking-core-darwin-arm64@0.2.3", "", { "os": "darwin", "cpu": "arm64" }, "sha512-cAwMPaIjQQLcrDicwPgFa5lVN6eQfgUtvQiuxkiF04ioNEIVQJ0AESevaAQoffb03ip3e6VBh7Bz6nc/IUcuzg=="],
+    "@starknetid/vibetracking-core-darwin-arm64": ["@starknetid/vibetracking-core-darwin-arm64@0.2.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-99QXjIqXJGm0fymWAwVw6Q0k7/wk8RNAhDOZ2L/yCr+ZZwj4Di55DxrVnW9h1FHefG5BP00mSB6MMZKGHCifJA=="],
 
-    "@starknetid/vibetracking-core-darwin-universal": ["@starknetid/vibetracking-core-darwin-universal@0.2.3", "", { "os": "darwin" }, "sha512-UDapxd5SwSvjCgFJBrePpbQtxtrHxFKIviDmMSANq+BXBC5wbU8SlWXn07y1CBMpJGyAxFh4y+JI9MwV97g/+w=="],
+    "@starknetid/vibetracking-core-darwin-universal": ["@starknetid/vibetracking-core-darwin-universal@0.2.4", "", { "os": "darwin" }, "sha512-daG3aTxefLqYNEWI9Nxo/tTJH6yo0vF7gn+kyIKshBUw09ge+HPzOsYMkzG9gwpqbtUZNjmKlwyYkHeiKJqaEw=="],
 
-    "@starknetid/vibetracking-core-darwin-x64": ["@starknetid/vibetracking-core-darwin-x64@0.2.3", "", { "os": "darwin", "cpu": "x64" }, "sha512-PE0d2pYkGNtc8zog9i6uTIXjPqmusE8d95RLuPE8gWjX2ECmBXp4EWl1og/K0ly1dWg+8yxPlOcxhuPFRBlang=="],
+    "@starknetid/vibetracking-core-darwin-x64": ["@starknetid/vibetracking-core-darwin-x64@0.2.4", "", { "os": "darwin", "cpu": "x64" }, "sha512-U/YYOXiMIICShSnbJR6tXAWfY3MRm6fJI/QkDnw8aIU+BvTzjPqR5UwJLGTYXea1mXGzhuyhJd48Ima4BGuc8A=="],
 
-    "@starknetid/vibetracking-core-linux-arm64-gnu": ["@starknetid/vibetracking-core-linux-arm64-gnu@0.2.3", "", { "os": "linux", "cpu": "arm64" }, "sha512-fo8IX6wvK1YYpiOYM9339ChxeRGbURPQamrXeJwJ3xLVe/kS18iGxNeuyAy8pN55bTTCGJhohWJNauAupLvB2g=="],
+    "@starknetid/vibetracking-core-linux-arm64-gnu": ["@starknetid/vibetracking-core-linux-arm64-gnu@0.2.4", "", { "os": "linux", "cpu": "arm64" }, "sha512-kaSOVx/OifGbEYEnmk9TuQ6Fu2kE+kRaD/g4k9TawCq3eHzORFyTEddToSkkrP8pZ3JVaG8J4iQfiHOvpv9xdw=="],
 
-    "@starknetid/vibetracking-core-linux-x64-gnu": ["@starknetid/vibetracking-core-linux-x64-gnu@0.2.3", "", { "os": "linux", "cpu": "x64" }, "sha512-do61L135KAEM4u4+zeCYaKFLAaw1JfxLyWeoJRLn7bljwOIWd5+oBVNTiZMlAOFqhlHmmFRvVyxQoJyQG55y0g=="],
+    "@starknetid/vibetracking-core-linux-x64-gnu": ["@starknetid/vibetracking-core-linux-x64-gnu@0.2.4", "", { "os": "linux", "cpu": "x64" }, "sha512-CkjmUmSbdptrkEEFKfVjbZct3dzO2RUGLmYPkPHBuEXAxEyLmMc7GaB162mk1aMEx2UUnGdMTTDrykHKjdg6VA=="],
 
-    "@starknetid/vibetracking-core-win32-arm64-msvc": ["@starknetid/vibetracking-core-win32-arm64-msvc@0.2.3", "", { "os": "win32", "cpu": "arm64" }, "sha512-KXbMeRU+GxYAZRAL3iCrcUuhhYH6s8xy8XeDo97RlNpXx/VMX9TuCMDa+lVFdCrjNkaUrlGQF5IN2zcqt5n44Q=="],
+    "@starknetid/vibetracking-core-win32-arm64-msvc": ["@starknetid/vibetracking-core-win32-arm64-msvc@0.2.4", "", { "os": "win32", "cpu": "arm64" }, "sha512-sa55CpgS7D0L27IRFZtFXIgij5vP1m6r68N5v+8yiUkvsaFK5eENUa3/ihEDoIsWDguleNffdaOR7SGIcvmI1g=="],
 
-    "@starknetid/vibetracking-core-win32-x64-msvc": ["@starknetid/vibetracking-core-win32-x64-msvc@0.2.3", "", { "os": "win32", "cpu": "x64" }, "sha512-+gJ1I/KC9s0p+ApjW7A+fqVPijyXXliUFAxd/2y+svcjiapD47AH/shCDEXPkAQHU+h5znCN3CRwTjUCikkqSw=="],
+    "@starknetid/vibetracking-core-win32-x64-msvc": ["@starknetid/vibetracking-core-win32-x64-msvc@0.2.4", "", { "os": "win32", "cpu": "x64" }, "sha512-CUaL309bjcT2jABGU6U6WnnTU8DFytaBLNGfcbxQUjLRfuyuJbUcb7Ggyft6l60CkfETh/D1KayhD+D4EIozAw=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 
