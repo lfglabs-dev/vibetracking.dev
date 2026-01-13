@@ -46,9 +46,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const displayName = user.display_name || username;
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.vibetracking.dev";
-  // Cache buster for X/Twitter - increment when OG image needs refresh
-  const ogImage = `${baseUrl}/og/user/${username}?v=2`;
+  const previewImage = "/previews/preview-invite.webp";
 
   return {
     title: `Challenge ${displayName} | vibetracking`,
@@ -56,14 +54,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: `${displayName} challenges you!`,
       description: `Think you can beat ${displayName}'s AI coding stats? Accept the challenge!`,
-      images: [ogImage],
+      images: [previewImage],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: `${displayName} challenges you!`,
       description: `Think you can beat ${displayName}'s AI coding stats? Accept the challenge!`,
-      images: [ogImage],
+      images: [previewImage],
     },
   };
 }
