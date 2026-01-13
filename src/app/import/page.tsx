@@ -40,8 +40,6 @@ function ImportPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [needsCompany, setNeedsCompany] = useState(false);
-  const [company, setCompany] = useState("");
   const [inviter, setInviter] = useState<string | null>(null);
   const [inviterValid, setInviterValid] = useState(false);
 
@@ -128,20 +126,8 @@ function ImportPageContent() {
 
       if (user) {
         setIsAuthenticated(true);
-        // Check if user already has a company set
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("company")
-          .eq("id", user.id)
-          .single<{ company: string | null }>();
-
-        if (existingUser?.company) {
-          // User already has company, proceed with import
-          handleImport(decoded);
-        } else {
-          // User needs to set company first
-          setNeedsCompany(true);
-        }
+        // Proceed with import directly
+        handleImport(decoded);
       }
     };
 
@@ -149,17 +135,14 @@ function ImportPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const handleImport = async (importData: ImportData, companyName?: string) => {
+  const handleImport = async (importData: ImportData) => {
     setIsLoading(true);
 
     try {
       const response = await fetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...importData,
-          company: companyName,
-        }),
+        body: JSON.stringify(importData),
       });
 
       if (!response.ok) {
@@ -183,19 +166,6 @@ function ImportPageContent() {
       setError(err instanceof Error ? err.message : "Import failed");
       setIsLoading(false);
     }
-  };
-
-  const handleCompanySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!data) return;
-    setNeedsCompany(false);
-    handleImport(data, company);
-  };
-
-  const handleSkipCompany = () => {
-    if (!data) return;
-    setNeedsCompany(false);
-    handleImport(data);
   };
 
   if (error) {
@@ -283,39 +253,6 @@ function ImportPageContent() {
                   This may take a moment, please don&apos;t refresh the page
                 </p>
               </div>
-            ) : needsCompany ? (
-              <form onSubmit={handleCompanySubmit} className="space-y-4">
-                <p className="text-center text-[#232323]/70 mb-4">
-                  One more thing! Add your company to complete your profile.
-                </p>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Company (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    className="w-full px-4 py-3 rounded-[10px] border border-[#232323] focus:outline-none focus:ring-2 focus:ring-[#AAE7C0]"
-                    placeholder="Your company"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleSkipCompany}
-                    className="btn-secondary flex-1"
-                  >
-                    Skip
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary flex-1"
-                  >
-                    Continue
-                  </button>
-                </div>
-              </form>
             ) : isAuthenticated ? (
               <div className="text-center py-8">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[#AAE7C0] border-t-transparent mb-4"></div>

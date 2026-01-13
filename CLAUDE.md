@@ -16,6 +16,7 @@ Environment variables are configured in Vercel dashboard for both Production and
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `VIBETRACKING_URL`
+- `GITHUB_PAT` (optional) - GitHub Personal Access Token for higher API rate limits when fetching org details
 
 ---
 
@@ -372,6 +373,7 @@ pnpm test
 | `/e2e/test-homepage` | Homepage (auth + unauth) | ~5 min |
 | `/e2e/test-import` | Import page flow | ~5 min |
 | `/e2e/test-profile` | Profile page tests | ~8 min |
+| `/e2e/test-team` | Team creation and profile | ~10 min |
 | `/e2e/test-full-suite` | Complete regression | ~20 min |
 | `/test-cli` | CLI manual testing | Manual |
 | `/test-onboarding` | Quick onboarding flow | ~3 min |

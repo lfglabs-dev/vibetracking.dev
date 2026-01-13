@@ -50,7 +50,7 @@ export function ChallengeUserButton({
     return (
       <button
         onClick={handleChallenge}
-        className="text-sm px-3 py-1.5 bg-[#FEA6CC] text-[#232323] rounded-lg hover:bg-[#FEA6CC]/80 transition-colors font-medium flex items-center gap-1.5"
+        className="text-sm px-3 py-1.5 bg-[#FEA6CC] text-[#232323] rounded-[10px] border-2 border-[#232323] hover:bg-[#FEA6CC]/80 transition-colors font-medium flex items-center gap-1.5"
       >
         <svg
           className="w-3.5 h-3.5"
