@@ -156,7 +156,8 @@ export async function POST(request: Request) {
       cost: number;
     }>();
 
-    const tokenUsageRecords: Array<{
+    // Aggregate token usage by date+tool+model to avoid duplicate key errors
+    const tokenUsageMap = new Map<string, {
       user_id: string;
       date: string;
       tool: string;
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
       cache_creation_tokens: number;
       reasoning_tokens: number;
       cost: number;
-    }> = [];
+    }>();
 
     for (const contribution of data.contributions) {
       for (const sourceData of contribution.sources) {
@@ -200,19 +201,31 @@ export async function POST(request: Request) {
         // Normalize model ID for consistent storage
         const normalizedModel = normalizeModelId(sourceData.modelId);
 
-        // Batch token usage records (insert, not upsert - no unique constraint)
-        tokenUsageRecords.push({
-          user_id: userId,
-          date: contribution.date,
-          tool,
-          model: normalizedModel,
-          input_tokens: sourceData.tokens.input,
-          output_tokens: sourceData.tokens.output,
-          cache_read_tokens: sourceData.tokens.cacheRead,
-          cache_creation_tokens: sourceData.tokens.cacheWrite,
-          reasoning_tokens: sourceData.tokens.reasoning,
-          cost: sourceData.cost,
-        });
+        // Aggregate token usage by date+tool+model to avoid duplicate key errors on upsert
+        const tokenKey = `${contribution.date}:${tool}:${normalizedModel}`;
+        const existingToken = tokenUsageMap.get(tokenKey);
+
+        if (existingToken) {
+          existingToken.input_tokens += sourceData.tokens.input;
+          existingToken.output_tokens += sourceData.tokens.output;
+          existingToken.cache_read_tokens += sourceData.tokens.cacheRead;
+          existingToken.cache_creation_tokens += sourceData.tokens.cacheWrite;
+          existingToken.reasoning_tokens += sourceData.tokens.reasoning;
+          existingToken.cost += sourceData.cost;
+        } else {
+          tokenUsageMap.set(tokenKey, {
+            user_id: userId,
+            date: contribution.date,
+            tool,
+            model: normalizedModel,
+            input_tokens: sourceData.tokens.input,
+            output_tokens: sourceData.tokens.output,
+            cache_read_tokens: sourceData.tokens.cacheRead,
+            cache_creation_tokens: sourceData.tokens.cacheWrite,
+            reasoning_tokens: sourceData.tokens.reasoning,
+            cost: sourceData.cost,
+          });
+        }
 
         // Track for favorites calculation
         modelTokens[normalizedModel] = (modelTokens[normalizedModel] || 0) + totalTokens;
@@ -222,6 +235,7 @@ export async function POST(request: Request) {
 
     // Chunk and write daily_activity and token_usage in parallel
     const dailyActivityRecords = Array.from(dailyActivityMap.values());
+    const tokenUsageRecords = Array.from(tokenUsageMap.values());
     const dailyChunks = chunkArray(dailyActivityRecords, CHUNK_SIZE);
     const tokenChunks = chunkArray(tokenUsageRecords, CHUNK_SIZE);
 
