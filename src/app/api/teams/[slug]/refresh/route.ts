@@ -105,14 +105,18 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
 
     // Update existing memberships with user_id (case-insensitive match)
-    for (const existing of existingMemberships || []) {
-      const userId = usernameToUserId.get(existing.github_username.toLowerCase());
-      if (userId) {
-        await serviceSupabase
+    // Batch updates in parallel for better performance
+    const updatePromises = (existingMemberships || [])
+      .filter((existing) => usernameToUserId.has(existing.github_username.toLowerCase()))
+      .map((existing) =>
+        serviceSupabase
           .from("team_memberships")
-          .update({ user_id: userId })
-          .eq("id", existing.id);
-      }
+          .update({ user_id: usernameToUserId.get(existing.github_username.toLowerCase()) })
+          .eq("id", existing.id)
+      );
+
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
     }
 
     // Add new members that weren't in the team

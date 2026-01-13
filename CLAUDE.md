@@ -16,6 +16,7 @@ Environment variables are configured in Vercel dashboard for both Production and
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `VIBETRACKING_URL`
+- `GITHUB_PAT` (optional) - GitHub Personal Access Token for higher API rate limits when fetching org details
 
 ---
 

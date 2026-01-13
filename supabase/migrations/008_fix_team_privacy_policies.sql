@@ -1,8 +1,13 @@
--- Add is_public column to teams table (default false for privacy)
-ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT false;
+-- Fixup migration: Clean up team privacy policies
+-- Migration 007 had incorrect policy names in DROP statements, leaving old permissive policies active
 
--- Update RLS policy to allow viewing teams if user is a member OR team is public
+-- Drop the old permissive SELECT policies that should have been removed
 DROP POLICY IF EXISTS "Teams are publicly readable" ON teams;
+DROP POLICY IF EXISTS "Team stats are publicly readable" ON team_stats;
+DROP POLICY IF EXISTS "Team memberships are publicly readable" ON team_memberships;
+
+-- Drop and recreate the restrictive policies (in case they already exist from previous run)
+DROP POLICY IF EXISTS "Teams are viewable by members or if public" ON teams;
 CREATE POLICY "Teams are viewable by members or if public" ON teams
   FOR SELECT
   USING (
@@ -15,8 +20,7 @@ CREATE POLICY "Teams are viewable by members or if public" ON teams
     )
   );
 
--- Update team_stats policy similarly
-DROP POLICY IF EXISTS "Team stats are publicly readable" ON team_stats;
+DROP POLICY IF EXISTS "Team stats are viewable by members or if public" ON team_stats;
 CREATE POLICY "Team stats are viewable by members or if public" ON team_stats
   FOR SELECT
   USING (
@@ -35,8 +39,7 @@ CREATE POLICY "Team stats are viewable by members or if public" ON team_stats
     )
   );
 
--- Update team_memberships policy similarly
-DROP POLICY IF EXISTS "Team memberships are publicly readable" ON team_memberships;
+DROP POLICY IF EXISTS "Team memberships are viewable by members or if public" ON team_memberships;
 CREATE POLICY "Team memberships are viewable by members or if public" ON team_memberships
   FOR SELECT
   USING (

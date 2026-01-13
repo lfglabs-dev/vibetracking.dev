@@ -106,6 +106,13 @@ export async function POST(request: Request) {
       .single();
 
     if (teamError) {
+      // Handle unique constraint violation (race condition - team was created between check and insert)
+      if (teamError.code === "23505") {
+        return NextResponse.json(
+          { error: "Team for this organization already exists", teamSlug: orgLogin },
+          { status: 409 }
+        );
+      }
       console.error("Error creating team:", teamError);
       return NextResponse.json(
         { error: "Failed to create team" },

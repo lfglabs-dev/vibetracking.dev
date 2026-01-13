@@ -90,8 +90,37 @@ CREATE POLICY "Team admins can update stats" ON public.team_stats
 CREATE POLICY "Authenticated users can create teams" ON public.teams
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY "System can insert team stats" ON public.team_stats
-  FOR INSERT WITH CHECK (true);
+-- Insert policies: require user to be team creator or admin
+CREATE POLICY "Team creators and admins can insert stats" ON public.team_stats
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.teams
+      WHERE teams.id = team_id
+      AND (
+        teams.created_by = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM public.team_memberships
+          WHERE team_memberships.team_id = teams.id
+          AND team_memberships.user_id = auth.uid()
+          AND team_memberships.role = 'admin'
+        )
+      )
+    )
+  );
 
-CREATE POLICY "System can insert team memberships" ON public.team_memberships
-  FOR INSERT WITH CHECK (true);
+CREATE POLICY "Team creators and admins can insert memberships" ON public.team_memberships
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.teams
+      WHERE teams.id = team_id
+      AND (
+        teams.created_by = auth.uid()
+        OR EXISTS (
+          SELECT 1 FROM public.team_memberships tm
+          WHERE tm.team_id = teams.id
+          AND tm.user_id = auth.uid()
+          AND tm.role = 'admin'
+        )
+      )
+    )
+  );
