@@ -9,6 +9,7 @@ const RESERVED_PATHS = [
   "import",
   "opengraph-image",
   "og",
+  "team",
   "test",
   "twitter-image",
   "user",
