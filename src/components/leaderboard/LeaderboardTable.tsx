@@ -1,6 +1,6 @@
 "use client";
 
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { ChallengeUserButton } from "@/components/challenge/ChallengeUserButton";
 
@@ -10,7 +10,9 @@ interface LeaderboardEntry {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
-  company: string | null;
+  teamSlug: string | null;
+  teamName: string | null;
+  teamIsPublic: boolean;
   estimatedSpend: number;
   totalSessions: number;
   currentStreak: number;
@@ -45,9 +47,8 @@ export function LeaderboardTable({
           <tr className="text-left text-sm uppercase text-[#232323]/60">
             <th className="py-3 px-4 font-medium">Rank</th>
             <th className="py-3 px-4 font-medium">Vibe Coder</th>
-            <th className="py-3 px-4 font-medium">Company</th>
+            <th className="py-3 px-4 font-medium">Team</th>
             <th className="py-3 px-4 font-medium text-right">Est. API Spend</th>
-            <th className="py-3 px-4 font-medium text-right">Sessions</th>
             <th className="py-3 px-4 font-medium text-right">Streak</th>
             {currentUsername && <th className="py-3 px-4 font-medium"></th>}
           </tr>
@@ -109,19 +110,25 @@ export function LeaderboardTable({
                   </Link>
                 </td>
                 <td className="py-4 px-4">
-                  {entry.company ? (
-                    <span className="tag tag-blue text-xs">
-                      {entry.company}
-                    </span>
+                  {entry.teamName ? (
+                    entry.teamIsPublic ? (
+                      <Link
+                        href={`/team/${entry.teamSlug}`}
+                        className="tag tag-blue text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                      >
+                        {entry.teamName}
+                      </Link>
+                    ) : (
+                      <span className="tag tag-blue text-xs">
+                        {entry.teamName}
+                      </span>
+                    )
                   ) : (
                     <span className="text-[#232323]/40">—</span>
                   )}
                 </td>
                 <td className="py-4 px-4 text-right font-mono font-bold">
                   {formatCurrency(entry.estimatedSpend)}
-                </td>
-                <td className="py-4 px-4 text-right font-mono">
-                  {formatNumber(entry.totalSessions)}
                 </td>
                 <td className="py-4 px-4 text-right">
                   {entry.currentStreak > 0 ? (

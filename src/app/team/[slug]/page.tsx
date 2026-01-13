@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
 
   const { data: team } = await supabase
     .from("teams")
-    .select("name, github_org_login")
+    .select("name, github_org_login, is_public")
     .eq("github_org_login", slug)
     .single();
 
@@ -29,8 +29,14 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     };
   }
 
-  // All teams are private by default - show generic metadata
-  // Once is_public column is added, we can show team name for public teams
+  // Show team name for public teams, generic metadata for private
+  if (team.is_public) {
+    return {
+      title: `${team.name} | vibetracking`,
+      description: `${team.name}'s AI coding usage stats on vibetracking`,
+    };
+  }
+
   return {
     title: `Private Team | vibetracking`,
     description: `A private team on vibetracking`,
@@ -56,6 +62,7 @@ export default async function TeamProfilePage({ params }: PageParams) {
       avatar_url,
       description,
       created_by,
+      is_public,
       team_stats (
         member_count,
         active_member_count,
@@ -73,9 +80,9 @@ export default async function TeamProfilePage({ params }: PageParams) {
     notFound();
   }
 
-  // All teams are private by default
-  // Check user access - must be creator or member
-  let hasAccess = false;
+  // Check access: public teams are viewable by anyone, private teams need membership
+  let hasAccess = team.is_public ?? false;
+  let isAdmin = false;
   let currentUserId: string | null = null;
 
   // Get current user from server-side auth
@@ -87,22 +94,26 @@ export default async function TeamProfilePage({ params }: PageParams) {
     // Check if user is team creator
     if (team.created_by === currentUserId) {
       hasAccess = true;
+      isAdmin = true;
     } else {
       // Check if user is a team member
       const { data: membership } = await supabase
         .from("team_memberships")
-        .select("id")
+        .select("id, role")
         .eq("team_id", team.id)
         .eq("user_id", currentUserId)
         .single();
 
       if (membership) {
         hasAccess = true;
+        if (membership.role === "admin") {
+          isAdmin = true;
+        }
       }
     }
   }
 
-  // Show private team page if no access
+  // Show private team page if no access (private team and not a member)
   if (!hasAccess) {
     return <PrivateTeamPage teamName={team.name} />;
   }
@@ -248,6 +259,7 @@ export default async function TeamProfilePage({ params }: PageParams) {
         description: team.description,
         memberCount: teamStats?.member_count || 0,
         activeMemberCount: teamStats?.active_member_count || 0,
+        isPublic: team.is_public ?? false,
       }}
       stats={{
         totalTokens: Number(teamStats?.total_tokens) || 0,
@@ -270,6 +282,7 @@ export default async function TeamProfilePage({ params }: PageParams) {
           role: m.role || "member",
         };
       })}
+      isAdmin={isAdmin}
     />
   );
 }

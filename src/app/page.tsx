@@ -11,7 +11,6 @@ interface UserData {
   username: string
   display_name: string | null
   avatar_url: string | null
-  company: string | null
 }
 
 interface LeaderboardRow {
@@ -30,7 +29,9 @@ interface LeaderboardEntry {
   username: string
   displayName: string | null
   avatarUrl: string | null
-  company: string | null
+  teamSlug: string | null
+  teamName: string | null
+  teamIsPublic: boolean
   totalTokens: number
   totalSessions: number
   currentStreak: number
@@ -49,7 +50,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'sarah_codes',
     displayName: 'Sarah Chen',
     avatarUrl: 'https://i.pravatar.cc/150?u=sarah',
-    company: 'Anthropic',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 45_892_341,
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 1247,
@@ -63,7 +66,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'alex_dev',
     displayName: 'Alex Rivera',
     avatarUrl: 'https://i.pravatar.cc/150?u=alex',
-    company: 'Vercel',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 38_127_892,
     favoriteModel: 'claude-opus-4-20250514',
     totalSessions: 982,
@@ -77,7 +82,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'maya_builds',
     displayName: 'Maya Johnson',
     avatarUrl: 'https://i.pravatar.cc/150?u=maya',
-    company: 'Supabase',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 29_451_203,
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 756,
@@ -91,7 +98,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'kevin_hacks',
     displayName: 'Kevin Park',
     avatarUrl: 'https://i.pravatar.cc/150?u=kevin',
-    company: 'OpenAI',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 24_892_451,
     favoriteModel: 'gpt-4o',
     totalSessions: 621,
@@ -105,7 +114,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'emma_codes',
     displayName: 'Emma Wilson',
     avatarUrl: 'https://i.pravatar.cc/150?u=emma',
-    company: 'Stripe',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 21_347_892,
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 543,
@@ -119,7 +130,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'james_dev',
     displayName: 'James Thompson',
     avatarUrl: 'https://i.pravatar.cc/150?u=james',
-    company: 'Linear',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 18_923_451,
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 489,
@@ -133,7 +146,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'lisa_builds',
     displayName: 'Lisa Wang',
     avatarUrl: 'https://i.pravatar.cc/150?u=lisa',
-    company: 'Figma',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 15_782_341,
     favoriteModel: 'claude-sonnet-4-20250514',
     totalSessions: 412,
@@ -147,7 +162,9 @@ const MOCK_LEADERBOARD: LeaderboardSeed[] = [
     username: 'mike_codes',
     displayName: 'Mike Brown',
     avatarUrl: 'https://i.pravatar.cc/150?u=mike',
-    company: 'Notion',
+    teamSlug: null,
+    teamName: null,
+    teamIsPublic: false,
     totalTokens: 12_451_892,
     favoriteModel: 'claude-opus-4-20250514',
     totalSessions: 356,
@@ -171,6 +188,12 @@ export default async function Home() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
+  // Use service role for team data to bypass RLS
+  const serviceSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   // Fetch leaderboard
   const { data: leaderboard } = await supabase
     .from('user_stats')
@@ -186,13 +209,55 @@ export default async function Home() {
         id,
         username,
         display_name,
-        avatar_url,
-        company
+        avatar_url
       )
     `
     )
     .order('total_cost', { ascending: false })
     .limit(50)
+
+  // Get all user IDs to fetch their team memberships
+  const userIds = (leaderboard as unknown as LeaderboardRow[])
+    ?.map((entry) => {
+      const userData = Array.isArray(entry.users) ? entry.users[0] : entry.users
+      return userData?.id
+    })
+    .filter((id): id is string => id !== undefined) || []
+
+  // Fetch team memberships for all users (use service role to bypass RLS)
+  const { data: memberships } = await serviceSupabase
+    .from('team_memberships')
+    .select(`
+      user_id,
+      joined_at,
+      teams (
+        github_org_login,
+        name,
+        is_public
+      )
+    `)
+    .in('user_id', userIds)
+    .order('joined_at', { ascending: true })
+
+  // Create a map of user_id to team info (first team joined takes priority)
+  const userTeamMap = new Map<string, { slug: string; name: string; isPublic: boolean }>()
+  if (memberships) {
+    for (const m of memberships) {
+      if (m.user_id && m.teams) {
+        // Skip if we already have a team for this user (keep the first one joined)
+        if (userTeamMap.has(m.user_id)) continue
+
+        const team = Array.isArray(m.teams) ? m.teams[0] : m.teams
+        if (team) {
+          userTeamMap.set(m.user_id, {
+            slug: (team as { github_org_login: string }).github_org_login,
+            name: (team as { name: string }).name,
+            isPublic: (team as { is_public: boolean }).is_public ?? false,
+          })
+        }
+      }
+    }
+  }
 
   // Transform leaderboard data - use total_cost directly from database
   const dbEntries: LeaderboardEntry[] =
@@ -201,13 +266,17 @@ export default async function Home() {
       const userData = Array.isArray(entry.users) ? entry.users[0] : entry.users
       if (!userData) return null
 
+      const teamInfo = userTeamMap.get(userData.id)
+
       return {
         rank: index + 1,
         userId: userData.id,
         username: userData.username,
         displayName: userData.display_name,
         avatarUrl: userData.avatar_url,
-        company: userData.company,
+        teamSlug: teamInfo?.slug || null,
+        teamName: teamInfo?.name || null,
+        teamIsPublic: teamInfo?.isPublic || false,
         totalTokens: entry.total_tokens,
         totalSessions: entry.total_sessions,
         currentStreak: entry.current_streak_days,
