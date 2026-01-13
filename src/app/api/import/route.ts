@@ -225,6 +225,8 @@ export async function POST(request: Request) {
     const dailyChunks = chunkArray(dailyActivityRecords, CHUNK_SIZE);
     const tokenChunks = chunkArray(tokenUsageRecords, CHUNK_SIZE);
 
+    const errors: string[] = [];
+
     await Promise.all([
       // Daily activity chunks (sequential within, parallel with token_usage)
       (async () => {
@@ -232,7 +234,10 @@ export async function POST(request: Request) {
           const { error } = await serviceSupabase
             .from("daily_activity")
             .upsert(chunk, { onConflict: "user_id,date,tool" });
-          if (error) console.error("daily_activity error:", error);
+          if (error) {
+            console.error("daily_activity error:", error);
+            errors.push(`daily_activity: ${error.message}`);
+          }
         }
       })(),
       // Token usage chunks (upsert to handle re-imports)
@@ -241,10 +246,21 @@ export async function POST(request: Request) {
           const { error } = await serviceSupabase
             .from("token_usage")
             .upsert(chunk, { onConflict: "user_id,date,tool,model" });
-          if (error) console.error("token_usage error:", error);
+          if (error) {
+            console.error("token_usage error:", error);
+            errors.push(`token_usage: ${error.message}`);
+          }
         }
       })(),
     ]);
+
+    // Fail if any database writes failed
+    if (errors.length > 0) {
+      return NextResponse.json(
+        { message: `Database write failed: ${errors.join(", ")}` },
+        { status: 500 }
+      );
+    }
 
     // Use summary from data
     const totalTokens = data.summary.totalTokens;
