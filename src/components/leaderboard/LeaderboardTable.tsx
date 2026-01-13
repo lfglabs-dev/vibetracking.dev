@@ -1,6 +1,6 @@
 "use client";
 
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { ChallengeUserButton } from "@/components/challenge/ChallengeUserButton";
 
@@ -47,7 +47,6 @@ export function LeaderboardTable({
             <th className="py-3 px-4 font-medium">Vibe Coder</th>
             <th className="py-3 px-4 font-medium">Company</th>
             <th className="py-3 px-4 font-medium text-right">Est. API Spend</th>
-            <th className="py-3 px-4 font-medium text-right">Sessions</th>
             <th className="py-3 px-4 font-medium text-right">Streak</th>
             {currentUsername && <th className="py-3 px-4 font-medium"></th>}
           </tr>
@@ -119,9 +118,6 @@ export function LeaderboardTable({
                 </td>
                 <td className="py-4 px-4 text-right font-mono font-bold">
                   {formatCurrency(entry.estimatedSpend)}
-                </td>
-                <td className="py-4 px-4 text-right font-mono">
-                  {formatNumber(entry.totalSessions)}
                 </td>
                 <td className="py-4 px-4 text-right">
                   {entry.currentStreak > 0 ? (
