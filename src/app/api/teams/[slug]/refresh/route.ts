@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-import { fetchAllOrgMembersWithUserToken, getOrgMembershipRole } from "@/lib/github-org";
+import { fetchAllOrgMembersWithUserToken } from "@/lib/github-org";
 
 interface RouteParams {
   params: Promise<{ slug: string }>;
@@ -73,17 +73,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Check org membership role for debugging
-    const orgRole = await getOrgMembershipRole(accessToken, team.github_org_login);
-    console.log(`[Team Refresh] User's GitHub org role: ${orgRole}`);
-
     // Fetch current org members from GitHub using user's token
     // If user is org admin, this returns ALL members (including private memberships)
-    console.log(`[Team Refresh] Fetching members for org: ${team.github_org_login}`);
-    console.log(`[Team Refresh] User is creator: ${isCreator}, is vibetracking team admin: ${isAdmin}`);
-
     const members = await fetchAllOrgMembersWithUserToken(accessToken, team.github_org_login);
-    console.log(`[Team Refresh] GitHub API returned ${members.length} members:`, members.map(m => m.login));
 
     // Get all vibetracking users (for case-insensitive matching)
     const { data: allUsers } = await serviceSupabase

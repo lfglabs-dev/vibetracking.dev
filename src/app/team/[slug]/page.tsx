@@ -128,7 +128,7 @@ export default async function TeamProfilePage({ params }: PageParams) {
     .filter((m) => m.user_id !== null)
     .map((m) => m.user_id as string);
 
-  // Get daily activity for all team members
+  // Fetch daily activity, token usage, and member stats in parallel
   let dailyActivity: Array<{
     date: string;
     tool: string;
@@ -136,17 +136,45 @@ export default async function TeamProfilePage({ params }: PageParams) {
     cost: number;
   }> = [];
 
-  if (activeMemberIds.length > 0) {
-    const { data: activityData } = await supabase
-      .from("daily_activity")
-      .select("date, tool, total_tokens, cost")
-      .in("user_id", activeMemberIds)
-      .order("date", { ascending: true });
+  let tokenUsage: Array<{
+    date: string;
+    model: string;
+    tokens: number;
+    cost: number;
+  }> = [];
 
-    if (activityData) {
-      // Aggregate by date+tool
+  let memberStats: Array<{
+    userId: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    totalTokens: number;
+    totalCost: number;
+  }> = [];
+
+  if (activeMemberIds.length > 0) {
+    // Run all three queries in parallel
+    const [activityResult, usageResult, statsResult] = await Promise.all([
+      supabase
+        .from("daily_activity")
+        .select("date, tool, total_tokens, cost")
+        .in("user_id", activeMemberIds)
+        .order("date", { ascending: true }),
+      supabase
+        .from("token_usage")
+        .select("date, model, input_tokens, output_tokens, cost")
+        .in("user_id", activeMemberIds)
+        .order("date", { ascending: true }),
+      supabase
+        .from("user_stats")
+        .select("user_id, total_tokens, total_cost")
+        .in("user_id", activeMemberIds),
+    ]);
+
+    // Process daily activity
+    if (activityResult.data) {
       const activityMap = new Map<string, { totalTokens: number; cost: number }>();
-      for (const row of activityData) {
+      for (const row of activityResult.data) {
         const key = `${row.date}:${row.tool}`;
         const existing = activityMap.get(key);
         if (existing) {
@@ -159,33 +187,16 @@ export default async function TeamProfilePage({ params }: PageParams) {
           });
         }
       }
-
       dailyActivity = Array.from(activityMap.entries()).map(([key, value]) => {
         const [date, tool] = key.split(":");
         return { date, tool, ...value };
       });
     }
-  }
 
-  // Get token usage for all team members
-  let tokenUsage: Array<{
-    date: string;
-    model: string;
-    tokens: number;
-    cost: number;
-  }> = [];
-
-  if (activeMemberIds.length > 0) {
-    const { data: usageData } = await supabase
-      .from("token_usage")
-      .select("date, model, input_tokens, output_tokens, cost")
-      .in("user_id", activeMemberIds)
-      .order("date", { ascending: true });
-
-    if (usageData) {
-      // Aggregate by date+model
+    // Process token usage
+    if (usageResult.data) {
       const usageMap = new Map<string, { tokens: number; cost: number }>();
-      for (const row of usageData) {
+      for (const row of usageResult.data) {
         const key = `${row.date}:${row.model}`;
         const totalTokens =
           (Number(row.input_tokens) || 0) + (Number(row.output_tokens) || 0);
@@ -200,33 +211,15 @@ export default async function TeamProfilePage({ params }: PageParams) {
           });
         }
       }
-
       tokenUsage = Array.from(usageMap.entries()).map(([key, value]) => {
         const [date, model] = key.split(":");
         return { date, model, ...value };
       });
     }
-  }
 
-  // Get member stats for leaderboards
-  let memberStats: Array<{
-    userId: string;
-    username: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    totalTokens: number;
-    totalCost: number;
-  }> = [];
-
-  if (activeMemberIds.length > 0) {
-    const { data: statsData } = await supabase
-      .from("user_stats")
-      .select("user_id, total_tokens, total_cost")
-      .in("user_id", activeMemberIds);
-
-    if (statsData) {
-      const statsMap = new Map(statsData.map((s) => [s.user_id, s]));
-
+    // Process member stats
+    if (statsResult.data) {
+      const statsMap = new Map(statsResult.data.map((s) => [s.user_id, s]));
       memberStats = (memberships || [])
         .filter((m) => m.user_id && statsMap.has(m.user_id))
         .map((m) => {
