@@ -4,7 +4,6 @@ import { BattleSlide } from "./BattleSlide";
 import { BattleSticker } from "./BattleSticker";
 import { useCountUp } from "@/hooks/useCountUp";
 import { formatCompactNumber, type BattleStats } from "@/lib/challenges";
-import { estimateApiSpendUsd } from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
 import { UnitToggle, type DisplayUnit } from "@/components/dashboard/UnitToggle";
 
@@ -17,15 +16,9 @@ interface SlideTokensProps {
 }
 
 export function SlideTokens({ user, rival, animationKey, displayUnit, onDisplayUnitChange }: SlideTokensProps) {
-  // Calculate API spend for each user
-  const userSpend = estimateApiSpendUsd({
-    model: user.favoriteModel,
-    totalTokens: user.totalTokens,
-  });
-  const rivalSpend = estimateApiSpendUsd({
-    model: rival.favoriteModel,
-    totalTokens: rival.totalTokens,
-  });
+  // Use the accurate spend from database (calculated per-message during import)
+  const userSpend = user.estimatedSpend;
+  const rivalSpend = rival.estimatedSpend;
 
   // Determine what values to display based on unit
   const userValue = displayUnit === "usd" ? userSpend : user.totalTokens;
