@@ -200,3 +200,69 @@ export async function getOrgMembershipRole(
   const membership = await response.json();
   return membership.role === "admin" ? "admin" : "member";
 }
+
+/**
+ * Fetch organization members using user's access token
+ * If the user is an org admin, this returns ALL members (including private)
+ * If not admin, only public members are returned
+ */
+export async function fetchOrgMembersWithUserToken(
+  accessToken: string,
+  orgLogin: string,
+  page = 1,
+  perPage = 100
+): Promise<GitHubMember[]> {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/orgs/${orgLogin}/members?page=${page}&per_page=${perPage}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "vibetracking.dev",
+      },
+    }
+  );
+
+  if (response.status === 404) {
+    return [];
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch org members: ${response.status} - ${errorText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch all organization members using user's access token (with pagination)
+ * If the user is an org admin, this returns ALL members (including private)
+ */
+export async function fetchAllOrgMembersWithUserToken(
+  accessToken: string,
+  orgLogin: string
+): Promise<GitHubMember[]> {
+  const allMembers: GitHubMember[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    const members = await fetchOrgMembersWithUserToken(accessToken, orgLogin, page, perPage);
+    allMembers.push(...members);
+
+    if (members.length < perPage) {
+      break;
+    }
+
+    page++;
+
+    // Safety limit to prevent infinite loops
+    if (page > 50) {
+      console.warn(`Reached pagination limit for org ${orgLogin}`);
+      break;
+    }
+  }
+
+  return allMembers;
+}

@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { TeamPage } from "@/components/team/TeamPage";
+import { PrivateTeamPage } from "@/components/team/PrivateTeamPage";
 import type { Metadata } from "next";
 
 interface PageParams {
@@ -12,7 +14,7 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   const { data: team } = await supabase
@@ -27,19 +29,18 @@ export async function generateMetadata({ params }: PageParams): Promise<Metadata
     };
   }
 
+  // All teams are private by default - show generic metadata
+  // Once is_public column is added, we can show team name for public teams
   return {
-    title: `${team.name} | vibetracking`,
-    description: `Check out ${team.name}'s team AI coding stats on vibetracking`,
-    openGraph: {
-      title: `${team.name} | vibetracking`,
-      description: `Check out ${team.name}'s team AI coding stats on vibetracking`,
-    },
+    title: `Private Team | vibetracking`,
+    description: `A private team on vibetracking`,
   };
 }
 
 export default async function TeamProfilePage({ params }: PageParams) {
   const { slug } = await params;
 
+  // Service role client for data fetching (bypasses RLS)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -54,6 +55,7 @@ export default async function TeamProfilePage({ params }: PageParams) {
       name,
       avatar_url,
       description,
+      created_by,
       team_stats (
         member_count,
         active_member_count,
@@ -69,6 +71,40 @@ export default async function TeamProfilePage({ params }: PageParams) {
 
   if (teamError || !team) {
     notFound();
+  }
+
+  // All teams are private by default
+  // Check user access - must be creator or member
+  let hasAccess = false;
+  let currentUserId: string | null = null;
+
+  // Get current user from server-side auth
+  const authSupabase = await createServerClient();
+  const { data: { user: authUser } } = await authSupabase.auth.getUser();
+  currentUserId = authUser?.id || null;
+
+  if (currentUserId) {
+    // Check if user is team creator
+    if (team.created_by === currentUserId) {
+      hasAccess = true;
+    } else {
+      // Check if user is a team member
+      const { data: membership } = await supabase
+        .from("team_memberships")
+        .select("id")
+        .eq("team_id", team.id)
+        .eq("user_id", currentUserId)
+        .single();
+
+      if (membership) {
+        hasAccess = true;
+      }
+    }
+  }
+
+  // Show private team page if no access
+  if (!hasAccess) {
+    return <PrivateTeamPage teamName={team.name} />;
   }
 
   // Get active member user IDs

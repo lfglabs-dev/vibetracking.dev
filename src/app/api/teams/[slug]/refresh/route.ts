@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
-import { fetchAllOrgMembers } from "@/lib/github-org";
+import { fetchAllOrgMembersWithUserToken } from "@/lib/github-org";
 
 interface RouteParams {
   params: Promise<{ slug: string }>;
@@ -20,6 +20,19 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!authUser) {
       return NextResponse.json(
         { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    // Get user's GitHub access token from session
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.provider_token;
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "GitHub access token not available. Please re-authenticate." },
         { status: 401 }
       );
     }
@@ -60,8 +73,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Fetch current org members from GitHub
-    const members = await fetchAllOrgMembers(team.github_org_login);
+    // Fetch current org members from GitHub using user's token
+    // If user is org admin, this returns ALL members (including private memberships)
+    const members = await fetchAllOrgMembersWithUserToken(accessToken, team.github_org_login);
 
     // Get all vibetracking users (for case-insensitive matching)
     const { data: allUsers } = await serviceSupabase

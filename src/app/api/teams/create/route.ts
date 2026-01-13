@@ -3,8 +3,9 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import {
   fetchOrgDetails,
-  fetchAllOrgMembers,
+  fetchAllOrgMembersWithUserToken,
   checkOrgMembership,
+  getOrgMembershipRole,
 } from "@/lib/github-org";
 
 export async function POST(request: Request) {
@@ -82,10 +83,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch organization members
-    const members = await fetchAllOrgMembers(orgLogin);
+    // Check if user is an org admin (admins can see ALL members including private)
+    const userRole = await getOrgMembershipRole(accessToken, orgLogin);
+    const isOrgAdmin = userRole === "admin";
 
-    // Create the team
+    // Fetch organization members using user's token
+    // If user is org admin, this returns ALL members (including those with private membership)
+    const members = await fetchAllOrgMembersWithUserToken(accessToken, orgLogin);
+
+    // Create the team (private by default - no is_public column needed, treated as false)
     const { data: team, error: teamError } = await serviceSupabase
       .from("teams")
       .insert({
@@ -192,6 +198,9 @@ export async function POST(request: Request) {
         memberCount: members.length,
         activeMemberCount: activeMembers.length,
       },
+      isOrgAdmin,
+      // If not org admin, only public members were fetched
+      allMembersFetched: isOrgAdmin,
     });
   } catch (error) {
     console.error("Error creating team:", error);
