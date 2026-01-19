@@ -7,6 +7,7 @@ const RESERVED_PATHS = [
   "auth",
   "battle",
   "import",
+  "methodology",
   "opengraph-image",
   "og",
   "team",

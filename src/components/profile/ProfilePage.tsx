@@ -16,6 +16,7 @@ import { ChallengeAFriendButton } from "@/components/challenge/ChallengeAFriendB
 import { Logo } from "@/components/shared/Logo";
 import { AnimatedSticker } from "@/components/shared/AnimatedSticker";
 import { formatModelName } from "@/lib/formatModelName";
+import Link from "next/link";
 
 interface ProfilePageProps {
   user: {
@@ -258,6 +259,11 @@ export function ProfilePage({
           <Logo />
 
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <Link href="/methodology">
+              <button className="btn-secondary flex items-center gap-2">
+                <span>?</span>
+              </button>
+            </Link>
             <UnitToggle value={displayUnit} onChange={setDisplayUnit} />
             {isOwnProfile ? (
               // Own profile: show "Challenge a friend" button (with share icon)
