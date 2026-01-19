@@ -37,6 +37,7 @@ echo "=== Preparing platform packages ==="
 echo ""
 
 # Copy binaries to their package directories
+missing_binaries=()
 for binary in "${!PLATFORM_MAP[@]}"; do
   pkg="${PLATFORM_MAP[$binary]}"
   src=$(find ./artifacts -name "$binary" -type f 2>/dev/null | head -1)
@@ -46,7 +47,48 @@ for binary in "${!PLATFORM_MAP[@]}"; do
     echo "  Copying $binary -> npm/$pkg/"
     cp "$src" "$dest"
   else
-    echo "  Warning: $binary not found in artifacts"
+    missing_binaries+=("$binary")
+  fi
+done
+
+if [ ${#missing_binaries[@]} -gt 0 ]; then
+  echo "Error: missing required binary artifacts:"
+  for binary in "${missing_binaries[@]}"; do
+    echo "  - $binary"
+  done
+  echo ""
+  echo "Download the full CI artifacts and try again."
+  exit 1
+fi
+
+echo ""
+echo "=== Verifying platform packages ==="
+echo ""
+
+tmp_pack_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_pack_dir"' EXIT
+
+for binary in "${!PLATFORM_MAP[@]}"; do
+  pkg="${PLATFORM_MAP[$binary]}"
+  binary_path="packages/core/npm/$pkg/$binary"
+
+  if [ ! -s "$binary_path" ]; then
+    echo "Error: expected binary not found at $binary_path"
+    exit 1
+  fi
+
+  echo "  Checking npm pack contents for $pkg..."
+  tgz_name=$(NPM_CONFIG_LOGLEVEL=error npm pack --silent --pack-destination "$tmp_pack_dir" "packages/core/npm/$pkg")
+  tgz_path="$tmp_pack_dir/$tgz_name"
+
+  if [ ! -f "$tgz_path" ]; then
+    echo "Error: npm pack did not produce a tarball for $pkg"
+    exit 1
+  fi
+
+  if ! tar -tf "$tgz_path" | grep -q "^package/$binary$"; then
+    echo "Error: npm pack tarball for $pkg is missing $binary"
+    exit 1
   fi
 done
 
