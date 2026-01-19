@@ -29,6 +29,7 @@ target/
 # misc
 .DS_Store
 *.pem
+packages/core/bun.lock
 
 # debug
 npm-debug.log*
