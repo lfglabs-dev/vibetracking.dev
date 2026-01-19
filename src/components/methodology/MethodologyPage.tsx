@@ -103,14 +103,14 @@ export function MethodologyPage() {
           />
           {/* Tools section */}
           <AnimatedSticker
-            src="/stickers/cursor_logo.webp"
+            src="/stickers/cloud.webp"
             width={120}
             height={120}
             className="absolute top-[350px] -left-20 md:-left-36 lg:-left-44 w-24 md:w-32 rotate-[8deg] hidden md:block drop-shadow-lg"
             delay={300}
           />
           <AnimatedSticker
-            src="/stickers/claude_logo.webp"
+            src="/stickers/banana.webp"
             width={140}
             height={140}
             className="absolute top-[380px] -right-24 md:-right-40 lg:-right-48 w-28 md:w-36 rotate-[-8deg] hidden md:block drop-shadow-lg"
@@ -118,14 +118,14 @@ export function MethodologyPage() {
           />
           {/* Token types section */}
           <AnimatedSticker
-            src="/stickers/cloud.webp"
+            src="/stickers/cursor.webp"
             width={140}
             height={140}
             className="absolute top-[650px] -left-24 md:-left-40 lg:-left-48 w-28 md:w-36 rotate-[10deg] hidden md:block drop-shadow-lg"
             delay={500}
           />
           <AnimatedSticker
-            src="/stickers/gpt_logo.webp"
+            src="/stickers/jensen.webp"
             width={150}
             height={150}
             className="absolute top-[700px] -right-24 md:-right-44 lg:-right-52 w-30 md:w-40 rotate-[-10deg] hidden md:block drop-shadow-lg"
@@ -133,14 +133,14 @@ export function MethodologyPage() {
           />
           {/* Parsing section */}
           <AnimatedSticker
-            src="/stickers/banana.webp"
+            src="/stickers/cloud.webp"
             width={100}
             height={100}
             className="absolute top-[950px] -right-20 md:-right-32 lg:-right-40 w-20 md:w-28 rotate-[12deg] hidden lg:block drop-shadow-lg"
             delay={700}
           />
           <AnimatedSticker
-            src="/stickers/jensen.webp"
+            src="/stickers/no_em_dashes.webp"
             width={150}
             height={150}
             className="absolute top-[1000px] -left-24 md:-left-40 lg:-left-48 w-30 md:w-40 rotate-[-6deg] hidden lg:block drop-shadow-lg"
