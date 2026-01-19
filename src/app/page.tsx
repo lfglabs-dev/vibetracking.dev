@@ -299,13 +299,20 @@ export default async function Home() {
           <header className="flex items-center justify-between mb-8">
             <Logo />
 
-            {user ? (
-              <Link href={`/@${user.user_metadata?.user_name || user.id}`}>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link href="/methodology">
                 <button className="btn-secondary flex items-center gap-2">
-                  <span>My Profile</span>
+                  <span>Methodology</span>
                 </button>
               </Link>
-            ) : null}
+              {user ? (
+                <Link href={`/@${user.user_metadata?.user_name || user.id}`}>
+                  <button className="btn-secondary flex items-center gap-2">
+                    <span>My Profile</span>
+                  </button>
+                </Link>
+              ) : null}
+            </div>
           </header>
 
           {/* Main content - Leaderboard + CTA */}
