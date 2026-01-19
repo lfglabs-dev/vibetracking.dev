@@ -446,6 +446,30 @@ export function MethodologyPage() {
                   or send analytics. The CLI is fully open source.
                 </p>
               </div>
+              <div className="flex items-start gap-3">
+                <span className="text-xl">🙏</span>
+                <p className="text-sm">
+                  <strong>Built on tokscale</strong> - Our CLI is based on{" "}
+                  <a
+                    href="https://github.com/junhoyeo/tokscale"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-[#232323]"
+                  >
+                    tokscale
+                  </a>{" "}
+                  by{" "}
+                  <a
+                    href="https://github.com/junhoyeo"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-[#232323]"
+                  >
+                    @junhoyeo
+                  </a>
+                  .
+                </p>
+              </div>
             </div>
           </div>
 
