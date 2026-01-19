@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { estimateApiSpendUsd } from "@/lib/pricing";
 
 interface UserData {
   id: string;
@@ -9,28 +8,27 @@ interface UserData {
   avatar_url: string | null;
 }
 
-interface TeamMembership {
-  team_id: string;
-  teams: {
-    github_org_login: string;
-    name: string;
-    is_public: boolean;
-  };
-}
-
 interface LeaderboardRow {
   user_id: string;
   total_tokens: number;
   total_sessions: number;
+  total_cost: number;
   current_streak_days: number;
   favorite_model: string | null;
   users: UserData[];
 }
 
+interface DailyActivityRow {
+  user_id: string;
+  total_tokens: number;
+  total_sessions: number;
+  total_cost: number;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get("period") || "all"; // all, month, week
+    const period = searchParams.get("period") || "all"; // all, 30d, 7d
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
 
     // Use anon client for public data (user stats, users)
@@ -39,43 +37,162 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Use service role for team data to bypass RLS (server-side only)
+    // Use service role for team data and aggregations
     const serviceSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Get leaderboard with user stats
-    const { data: leaderboard, error } = await supabase
-      .from("user_stats")
-      .select(
-        `
-        user_id,
-        total_tokens,
-        total_sessions,
-        current_streak_days,
-        favorite_model,
-        users!inner (
-          id,
-          username,
-          display_name,
-          avatar_url
-        )
-      `
-      )
-      .order("total_tokens", { ascending: false })
-      .limit(limit);
+    let leaderboard: LeaderboardRow[] = [];
 
-    if (error) {
-      console.error("Error fetching leaderboard:", error);
-      return NextResponse.json(
-        { message: "Failed to fetch leaderboard" },
-        { status: 500 }
+    if (period === "all") {
+      // All-time: use user_stats table
+      const { data, error } = await supabase
+        .from("user_stats")
+        .select(
+          `
+          user_id,
+          total_tokens,
+          total_sessions,
+          total_cost,
+          current_streak_days,
+          favorite_model,
+          users!inner (
+            id,
+            username,
+            display_name,
+            avatar_url
+          )
+        `
+        )
+        .order("total_cost", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error("Error fetching leaderboard:", error);
+        return NextResponse.json(
+          { message: "Failed to fetch leaderboard" },
+          { status: 500 }
+        );
+      }
+      leaderboard = data as unknown as LeaderboardRow[];
+    } else {
+      // Week or Month: aggregate from daily_activity
+      const days = period === "7d" ? 7 : 30;
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+      // Use raw SQL for aggregation via service role
+      const { data: aggregated, error: aggError } = await serviceSupabase.rpc(
+        "get_leaderboard_by_period",
+        { cutoff_date: cutoffStr, result_limit: limit }
       );
+
+      if (aggError) {
+        // Fallback: try direct query if RPC doesn't exist
+        const { data: fallbackData, error: fallbackError } = await serviceSupabase
+          .from("daily_activity")
+          .select("user_id, total_tokens, session_count, cost")
+          .gte("date", cutoffStr);
+
+        if (fallbackError) {
+          console.error("Error fetching daily activity:", fallbackError);
+          return NextResponse.json(
+            { message: "Failed to fetch leaderboard" },
+            { status: 500 }
+          );
+        }
+
+        // Manual aggregation
+        const userAggregates = new Map<string, { tokens: number; sessions: number; cost: number }>();
+        for (const row of fallbackData || []) {
+          const existing = userAggregates.get(row.user_id) || { tokens: 0, sessions: 0, cost: 0 };
+          userAggregates.set(row.user_id, {
+            tokens: existing.tokens + (row.total_tokens || 0),
+            sessions: existing.sessions + (row.session_count || 0),
+            cost: existing.cost + parseFloat(row.cost || "0"),
+          });
+        }
+
+        // Get user details
+        const userIds = Array.from(userAggregates.keys());
+        if (userIds.length === 0) {
+          return NextResponse.json({ leaderboard: [], period });
+        }
+
+        const { data: users } = await supabase
+          .from("users")
+          .select("id, username, display_name, avatar_url")
+          .in("id", userIds);
+
+        const { data: stats } = await supabase
+          .from("user_stats")
+          .select("user_id, current_streak_days, favorite_model")
+          .in("user_id", userIds);
+
+        const statsMap = new Map(stats?.map((s) => [s.user_id, s]) || []);
+        const usersMap = new Map(users?.map((u) => [u.id, u]) || []);
+
+        leaderboard = Array.from(userAggregates.entries())
+          .map(([userId, agg]) => {
+            const user = usersMap.get(userId);
+            const stat = statsMap.get(userId);
+            if (!user) return null;
+            return {
+              user_id: userId,
+              total_tokens: agg.tokens,
+              total_sessions: agg.sessions,
+              total_cost: agg.cost,
+              current_streak_days: stat?.current_streak_days || 0,
+              favorite_model: stat?.favorite_model || null,
+              users: [user],
+            };
+          })
+          .filter((x): x is LeaderboardRow => x !== null)
+          .sort((a, b) => b.total_cost - a.total_cost)
+          .slice(0, limit);
+      } else {
+        // RPC succeeded - transform the data
+        const userIds = aggregated?.map((r: DailyActivityRow) => r.user_id) || [];
+        if (userIds.length === 0) {
+          return NextResponse.json({ leaderboard: [], period });
+        }
+
+        const { data: users } = await supabase
+          .from("users")
+          .select("id, username, display_name, avatar_url")
+          .in("id", userIds);
+
+        const { data: stats } = await supabase
+          .from("user_stats")
+          .select("user_id, current_streak_days, favorite_model")
+          .in("user_id", userIds);
+
+        const statsMap = new Map(stats?.map((s) => [s.user_id, s]) || []);
+        const usersMap = new Map(users?.map((u) => [u.id, u]) || []);
+
+        leaderboard = (aggregated || [])
+          .map((row: DailyActivityRow) => {
+            const user = usersMap.get(row.user_id);
+            const stat = statsMap.get(row.user_id);
+            if (!user) return null;
+            return {
+              user_id: row.user_id,
+              total_tokens: row.total_tokens,
+              total_sessions: row.total_sessions,
+              total_cost: row.total_cost,
+              current_streak_days: stat?.current_streak_days || 0,
+              favorite_model: stat?.favorite_model || null,
+              users: [user],
+            };
+          })
+          .filter((x: LeaderboardRow | null): x is LeaderboardRow => x !== null);
+      }
     }
 
     // Get all user IDs to fetch their team memberships
-    const userIds = (leaderboard as unknown as LeaderboardRow[])
+    const userIds = leaderboard
       .map((entry) => {
         const user = Array.isArray(entry.users) ? entry.users[0] : entry.users;
         return user?.id;
@@ -118,8 +235,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // Transform data for response
-    const transformed = (leaderboard as unknown as LeaderboardRow[])
+    // Transform data for response - use total_cost directly
+    const transformed = leaderboard
       .map((entry) => {
         // Supabase !inner join returns a single object, not an array
         const user = Array.isArray(entry.users) ? entry.users[0] : entry.users;
@@ -132,7 +249,6 @@ export async function GET(request: Request) {
           username: user.username,
           displayName: user.display_name,
           avatarUrl: user.avatar_url,
-          // Team info for clickable team tag
           teamSlug: teamInfo?.slug || null,
           teamName: teamInfo?.name || null,
           teamIsPublic: teamInfo?.isPublic || false,
@@ -140,21 +256,17 @@ export async function GET(request: Request) {
           totalSessions: entry.total_sessions,
           currentStreak: entry.current_streak_days,
           favoriteModel: entry.favorite_model,
-          estimatedSpend: estimateApiSpendUsd({
-            model: entry.favorite_model,
-            totalTokens: entry.total_tokens,
-          }),
+          estimatedSpend: entry.total_cost,
           profileUrl: `/@${user.username}`,
         };
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
-    const ranked = transformed
-      .sort((a, b) => b.estimatedSpend - a.estimatedSpend)
-      .map((entry, index) => ({
-        ...entry,
-        rank: index + 1,
-      }));
+    // Data is already sorted by total_cost, just add ranks
+    const ranked = transformed.map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }));
 
     return NextResponse.json({
       leaderboard: ranked,

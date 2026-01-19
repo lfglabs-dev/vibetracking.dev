@@ -1,6 +1,6 @@
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
-import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable'
+import { LeaderboardWithTimeframe } from '@/components/leaderboard/LeaderboardWithTimeframe'
 import { CTABox } from '@/components/home/CTABox'
 import { HomeStickers } from '@/components/home/HomeStickers'
 import { Logo } from '@/components/shared/Logo'
@@ -321,18 +321,11 @@ export default async function Home() {
             <CTABox />
 
             {/* Leaderboard */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">Leaderboard</h2>
-                <span className="tag tag-yellow">All Time</span>
-              </div>
-
-              <LeaderboardTable
-                entries={entries}
-                currentUserId={user?.id}
-                currentUsername={user?.user_metadata?.user_name}
-              />
-            </div>
+            <LeaderboardWithTimeframe
+              initialEntries={entries}
+              currentUserId={user?.id}
+              currentUsername={user?.user_metadata?.user_name}
+            />
           </div>
 
           {/* Footer */}
