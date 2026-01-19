@@ -302,7 +302,7 @@ export default async function Home() {
             <div className="flex items-center gap-2 sm:gap-3">
               <Link href="/methodology">
                 <button className="btn-secondary flex items-center gap-2">
-                  <span>?</span>
+                  <span>Methodology</span>
                 </button>
               </Link>
               {user ? (

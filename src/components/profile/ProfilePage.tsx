@@ -261,7 +261,7 @@ export function ProfilePage({
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <Link href="/methodology">
               <button className="btn-secondary flex items-center gap-2">
-                <span>?</span>
+                <span>Methodology</span>
               </button>
             </Link>
             <UnitToggle value={displayUnit} onChange={setDisplayUnit} />
