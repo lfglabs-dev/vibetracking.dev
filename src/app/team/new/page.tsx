@@ -75,6 +75,19 @@ export default function NewTeamPage() {
           throw new Error("Failed to fetch organizations");
         }
 
+        const scopesHeader = response.headers.get("x-oauth-scopes") || "";
+        const scopes = scopesHeader
+          .split(",")
+          .map((scope) => scope.trim())
+          .filter(Boolean);
+        const hasOrgScope = scopes.includes("read:org") || scopes.includes("admin:org");
+
+        if (!hasOrgScope) {
+          // GitHub returns 200 with only public orgs if read:org is missing
+          setAuthState("needs_org_access");
+          return;
+        }
+
         const data = await response.json();
         setOrgs(data);
         setAuthState("has_org_access");
