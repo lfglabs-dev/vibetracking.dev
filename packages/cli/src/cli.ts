@@ -60,6 +60,7 @@ const SOURCE_LABELS: Record<SourceType, string> = {
   gemini: "Gemini",
   amp: "Amp",
   droid: "Droid",
+  openclaw: "OpenClaw",
 };
 
 const SOURCE_ORDER: SourceType[] = [
@@ -70,6 +71,7 @@ const SOURCE_ORDER: SourceType[] = [
   "gemini",
   "amp",
   "droid",
+  "openclaw",
 ];
 
 function formatDetectedTools(sources: SourceType[]): string {
@@ -270,6 +272,7 @@ async function openBrowserWithData(inviterUsername?: string) {
     geminiCount: 0,
     ampCount: 0,
     droidCount: 0,
+    openclawCount: 0,
     processingTimeMs: 0,
   };
   const messagesForGraph = localMessages ?? emptyParsedMessages;
