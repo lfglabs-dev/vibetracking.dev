@@ -72,6 +72,7 @@ pub struct ParsedMessages {
     pub gemini_count: i32,
     pub amp_count: i32,
     pub droid_count: i32,
+    pub openclaw_count: i32,
     pub processing_time_ms: u32,
 }
 
@@ -182,6 +183,7 @@ pub struct GraphResult {
 
 use rayon::prelude::*;
 use sessions::UnifiedMessage;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 fn get_home_dir(home_dir_option: &Option<String>) -> napi::Result<String> {
@@ -449,6 +451,29 @@ fn parse_all_messages_with_pricing(
         .collect();
     all_messages.extend(droid_messages);
 
+    // Parse OpenClaw index files
+    let openclaw_messages: Vec<UnifiedMessage> = scan_result
+        .openclaw_files
+        .par_iter()
+        .flat_map(|path| {
+            sessions::openclaw::parse_openclaw_index(path)
+                .into_iter()
+                .map(|mut msg| {
+                    msg.cost = pricing.calculate_cost(
+                        &msg.model_id,
+                        msg.tokens.input,
+                        msg.tokens.output,
+                        msg.tokens.cache_read,
+                        msg.tokens.cache_write,
+                        msg.tokens.reasoning,
+                    );
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(openclaw_messages);
+
     all_messages
 }
 
@@ -468,6 +493,7 @@ pub async fn get_model_report(options: ReportOptions) -> napi::Result<ModelRepor
             "cursor".to_string(),
             "amp".to_string(),
             "droid".to_string(),
+            "openclaw".to_string(),
         ]
     });
 
@@ -569,6 +595,7 @@ pub async fn get_monthly_report(options: ReportOptions) -> napi::Result<MonthlyR
             "cursor".to_string(),
             "amp".to_string(),
             "droid".to_string(),
+            "openclaw".to_string(),
         ]
     });
 
@@ -645,6 +672,7 @@ pub async fn generate_graph_with_pricing(options: ReportOptions) -> napi::Result
             "cursor".to_string(),
             "amp".to_string(),
             "droid".to_string(),
+            "openclaw".to_string(),
         ]
     });
 
@@ -692,6 +720,16 @@ fn filter_messages_for_report(
     filtered
 }
 
+fn is_headless_path(path: &Path, headless_roots: &[PathBuf]) -> bool {
+    headless_roots.iter().any(|root| path.starts_with(root))
+}
+
+fn apply_headless_agent(message: &mut UnifiedMessage, is_headless: bool) {
+    if is_headless && message.agent.is_none() {
+        message.agent = Some("headless".to_string());
+    }
+}
+
 // =============================================================================
 // Two-Phase Processing Functions (for parallel execution optimization)
 // =============================================================================
@@ -713,6 +751,7 @@ pub fn parse_local_sources(options: LocalParseOptions) -> napi::Result<ParsedMes
             "gemini".to_string(),
             "amp".to_string(),
             "droid".to_string(),
+            "openclaw".to_string(),
         ]
     });
 
@@ -720,6 +759,7 @@ pub fn parse_local_sources(options: LocalParseOptions) -> napi::Result<ParsedMes
     let local_sources: Vec<String> = sources.into_iter().filter(|s| s != "cursor").collect();
 
     let scan_result = scanner::scan_all_sources(&home_dir, &local_sources);
+    let headless_roots = scanner::headless_roots(&home_dir);
 
     let mut messages: Vec<ParsedMessage> = Vec::new();
 
@@ -760,14 +800,18 @@ pub fn parse_local_sources(options: LocalParseOptions) -> napi::Result<ParsedMes
     let claude_count = claude_msgs.len() as i32;
     messages.extend(claude_msgs);
 
-    // Parse Codex files in parallel
+    // Parse Codex files in parallel (with headless agent tagging)
     let codex_msgs: Vec<ParsedMessage> = scan_result
         .codex_files
         .par_iter()
         .flat_map(|path| {
+            let is_headless = is_headless_path(path, &headless_roots);
             sessions::codex::parse_codex_file(path)
                 .into_iter()
-                .map(|msg| unified_to_parsed(&msg))
+                .map(|mut msg| {
+                    apply_headless_agent(&mut msg, is_headless);
+                    unified_to_parsed(&msg)
+                })
                 .collect::<Vec<_>>()
         })
         .collect();
@@ -816,6 +860,20 @@ pub fn parse_local_sources(options: LocalParseOptions) -> napi::Result<ParsedMes
     let droid_count = droid_msgs.len() as i32;
     messages.extend(droid_msgs);
 
+    // Parse OpenClaw index files (each index points to session files)
+    let openclaw_msgs: Vec<ParsedMessage> = scan_result
+        .openclaw_files
+        .par_iter()
+        .flat_map(|path| {
+            sessions::openclaw::parse_openclaw_index(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let openclaw_count = openclaw_msgs.len() as i32;
+    messages.extend(openclaw_msgs);
+
     // Apply date filters
     let filtered = filter_parsed_messages(messages, &options);
 
@@ -827,6 +885,7 @@ pub fn parse_local_sources(options: LocalParseOptions) -> napi::Result<ParsedMes
         gemini_count,
         amp_count,
         droid_count,
+        openclaw_count,
         processing_time_ms: start.elapsed().as_millis() as u32,
     })
 }
@@ -924,7 +983,7 @@ pub async fn finalize_report(options: FinalizeReportOptions) -> napi::Result<Mod
     // Add Cursor messages if enabled
     if options.include_cursor {
         let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
-        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
+        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "usage*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files
             .par_iter()
@@ -1071,7 +1130,7 @@ pub async fn finalize_monthly_report(options: FinalizeMonthlyOptions) -> napi::R
     // Add Cursor messages if enabled
     if options.include_cursor {
         let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
-        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
+        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "usage*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files
             .par_iter()
@@ -1203,7 +1262,7 @@ pub async fn finalize_graph(options: FinalizeGraphOptions) -> napi::Result<Graph
     // Add Cursor messages if enabled
     if options.include_cursor {
         let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
-        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
+        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "usage*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files
             .par_iter()
@@ -1297,7 +1356,7 @@ pub async fn finalize_report_and_graph(options: FinalizeReportOptions) -> napi::
     // Add Cursor messages if enabled
     if options.include_cursor {
         let cursor_cache_dir = format!("{}/.vibetracking/cursor-cache", home_dir);
-        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "*.csv");
+        let cursor_files = scanner::scan_directory(&cursor_cache_dir, "usage*.csv");
 
         let cursor_messages: Vec<UnifiedMessage> = cursor_files
             .par_iter()

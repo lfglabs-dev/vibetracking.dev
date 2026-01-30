@@ -27,6 +27,7 @@ function normalizeToolName(source: string): string {
     cursor: "cursor",
     amp: "amp",
     droid: "droid",
+    openclaw: "openclaw",
     claude_code: "claude_code",
   };
   return toolMap[source.toLowerCase()] || source.toLowerCase();

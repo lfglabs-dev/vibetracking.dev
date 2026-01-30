@@ -154,6 +154,7 @@ interface NativeParsedMessages {
   geminiCount: number;
   ampCount: number;
   droidCount?: number;
+  openclawCount?: number;
   processingTimeMs: number;
 }
 
@@ -362,6 +363,7 @@ export interface ParsedMessages {
   geminiCount: number;
   ampCount: number;
   droidCount: number;
+  openclawCount: number;
   processingTimeMs: number;
 }
 
