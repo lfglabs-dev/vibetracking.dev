@@ -20,6 +20,7 @@ export const TOOL_COLORS: Record<string, string> = {
   gemini: "#20C997", // Teal
   amp: "#CC9A06", // Yellow
   droid: "#DC3545", // Red
+  openclaw: "#6C757D", // Gray
 };
 
 export const TOOL_LABELS: Record<string, string> = {
@@ -31,6 +32,7 @@ export const TOOL_LABELS: Record<string, string> = {
   gemini: "Gemini",
   amp: "Amp",
   droid: "Droid",
+  openclaw: "OpenClaw",
 };
 
 // GitHub contribution colors

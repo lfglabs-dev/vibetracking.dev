@@ -64,8 +64,8 @@ importers:
   packages/cli:
     dependencies:
       '@starknetid/vibetracking-core':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
       clipboardy:
         specifier: ^5.0.2
         version: 5.0.2
@@ -108,26 +108,26 @@ importers:
         version: 6.4.1
     optionalDependencies:
       '@starknetid/vibetracking-core-darwin-arm64':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
       '@starknetid/vibetracking-core-darwin-universal':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
       '@starknetid/vibetracking-core-darwin-x64':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
       '@starknetid/vibetracking-core-linux-arm64-gnu':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
       '@starknetid/vibetracking-core-linux-x64-gnu':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
       '@starknetid/vibetracking-core-win32-arm64-msvc':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
       '@starknetid/vibetracking-core-win32-x64-msvc':
-        specifier: 0.2.4
-        version: 0.2.4
+        specifier: 0.2.5
+        version: 0.2.5
 
 packages:
 
@@ -1067,49 +1067,49 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
-  '@starknetid/vibetracking-core-darwin-arm64@0.2.4':
-    resolution: {integrity: sha512-99QXjIqXJGm0fymWAwVw6Q0k7/wk8RNAhDOZ2L/yCr+ZZwj4Di55DxrVnW9h1FHefG5BP00mSB6MMZKGHCifJA==}
+  '@starknetid/vibetracking-core-darwin-arm64@0.2.5':
+    resolution: {integrity: sha512-1NY/uL+4asVceVO1OkcvzkVK9fsvEa1QeaXwSju/42hJOmIDR7FDUxG7BkdvWR009HU4roNgBDGZCQwm7baBng==}
     engines: {node: '>= 16'}
     cpu: [arm64]
     os: [darwin]
 
-  '@starknetid/vibetracking-core-darwin-universal@0.2.4':
-    resolution: {integrity: sha512-daG3aTxefLqYNEWI9Nxo/tTJH6yo0vF7gn+kyIKshBUw09ge+HPzOsYMkzG9gwpqbtUZNjmKlwyYkHeiKJqaEw==}
+  '@starknetid/vibetracking-core-darwin-universal@0.2.5':
+    resolution: {integrity: sha512-LUBqC4os8jQehJPFieP6khDt13+1WiBjg619dc5/W7NI4tIayaKwuOoqENzCOnajZhIleuPqMvNAEcJndLOyGQ==}
     engines: {node: '>= 16'}
     os: [darwin]
 
-  '@starknetid/vibetracking-core-darwin-x64@0.2.4':
-    resolution: {integrity: sha512-U/YYOXiMIICShSnbJR6tXAWfY3MRm6fJI/QkDnw8aIU+BvTzjPqR5UwJLGTYXea1mXGzhuyhJd48Ima4BGuc8A==}
+  '@starknetid/vibetracking-core-darwin-x64@0.2.5':
+    resolution: {integrity: sha512-raCq1CfjjfpQywmpw2t8VHz1LhbdHFwQ78B30XytAsDe8gkeRWewEwpjAswa+MST8LwYsWadQf3M6gaTiWGy+Q==}
     engines: {node: '>= 16'}
     cpu: [x64]
     os: [darwin]
 
-  '@starknetid/vibetracking-core-linux-arm64-gnu@0.2.4':
-    resolution: {integrity: sha512-kaSOVx/OifGbEYEnmk9TuQ6Fu2kE+kRaD/g4k9TawCq3eHzORFyTEddToSkkrP8pZ3JVaG8J4iQfiHOvpv9xdw==}
+  '@starknetid/vibetracking-core-linux-arm64-gnu@0.2.5':
+    resolution: {integrity: sha512-nTIpP0tDM9Z9WoanMKkOshS0E30RizFd1qQTjriuFldJ09XJtB5hlZzFYewS4YKrz3bJSILRXo6I+yQyiz/IFg==}
     engines: {node: '>= 16'}
     cpu: [arm64]
     os: [linux]
 
-  '@starknetid/vibetracking-core-linux-x64-gnu@0.2.4':
-    resolution: {integrity: sha512-CkjmUmSbdptrkEEFKfVjbZct3dzO2RUGLmYPkPHBuEXAxEyLmMc7GaB162mk1aMEx2UUnGdMTTDrykHKjdg6VA==}
+  '@starknetid/vibetracking-core-linux-x64-gnu@0.2.5':
+    resolution: {integrity: sha512-X7v8G1piY6YROjia4Iqtytx3D9h+jAAEwpT7uUE/H0kGuqBhEPoD1UgJe7MG5NAxh8iyBj6KXGoTz00CRs+waw==}
     engines: {node: '>= 16'}
     cpu: [x64]
     os: [linux]
 
-  '@starknetid/vibetracking-core-win32-arm64-msvc@0.2.4':
-    resolution: {integrity: sha512-sa55CpgS7D0L27IRFZtFXIgij5vP1m6r68N5v+8yiUkvsaFK5eENUa3/ihEDoIsWDguleNffdaOR7SGIcvmI1g==}
+  '@starknetid/vibetracking-core-win32-arm64-msvc@0.2.5':
+    resolution: {integrity: sha512-+H/hCvFRaRetqO3qTVdF9RLxe+3iIIpt0BSXGbqX5w1O1AYpQvAX+Z3L6tVgoxJYjastati5Ocs3trvjee7C7A==}
     engines: {node: '>= 16'}
     cpu: [arm64]
     os: [win32]
 
-  '@starknetid/vibetracking-core-win32-x64-msvc@0.2.4':
-    resolution: {integrity: sha512-CUaL309bjcT2jABGU6U6WnnTU8DFytaBLNGfcbxQUjLRfuyuJbUcb7Ggyft6l60CkfETh/D1KayhD+D4EIozAw==}
+  '@starknetid/vibetracking-core-win32-x64-msvc@0.2.5':
+    resolution: {integrity: sha512-aj1zPhMGtLE1RjitdBDdq6Wj1voG1WIm5efruuXgyCwvDsMRPAD4EqkNPkNnXlrHh2/K8z4xHEHBi0VznhKFQw==}
     engines: {node: '>= 16'}
     cpu: [x64]
     os: [win32]
 
-  '@starknetid/vibetracking-core@0.2.4':
-    resolution: {integrity: sha512-vhkLmTSGyv6QcJGrInNdYx6xFF6WNWktMZSGx5jwBj1oJ2ZzvBrHjw+zck4bbc8+Oc9jPaoIL3g6zmLwABTLfQ==}
+  '@starknetid/vibetracking-core@0.2.5':
+    resolution: {integrity: sha512-v0Y9pQ2DgrBHGoup6jkizvTtOgGHqeNWN7kosbVBYmltlsrxEKlCKEIJ0S12KEhBzmCx1OXZ0YPeL8V34hfonA==}
     engines: {node: '>= 16'}
 
   '@supabase/auth-js@2.89.0':
@@ -4255,36 +4255,36 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@starknetid/vibetracking-core-darwin-arm64@0.2.4':
+  '@starknetid/vibetracking-core-darwin-arm64@0.2.5':
     optional: true
 
-  '@starknetid/vibetracking-core-darwin-universal@0.2.4':
+  '@starknetid/vibetracking-core-darwin-universal@0.2.5':
     optional: true
 
-  '@starknetid/vibetracking-core-darwin-x64@0.2.4':
+  '@starknetid/vibetracking-core-darwin-x64@0.2.5':
     optional: true
 
-  '@starknetid/vibetracking-core-linux-arm64-gnu@0.2.4':
+  '@starknetid/vibetracking-core-linux-arm64-gnu@0.2.5':
     optional: true
 
-  '@starknetid/vibetracking-core-linux-x64-gnu@0.2.4':
+  '@starknetid/vibetracking-core-linux-x64-gnu@0.2.5':
     optional: true
 
-  '@starknetid/vibetracking-core-win32-arm64-msvc@0.2.4':
+  '@starknetid/vibetracking-core-win32-arm64-msvc@0.2.5':
     optional: true
 
-  '@starknetid/vibetracking-core-win32-x64-msvc@0.2.4':
+  '@starknetid/vibetracking-core-win32-x64-msvc@0.2.5':
     optional: true
 
-  '@starknetid/vibetracking-core@0.2.4':
+  '@starknetid/vibetracking-core@0.2.5':
     optionalDependencies:
-      '@starknetid/vibetracking-core-darwin-arm64': 0.2.4
-      '@starknetid/vibetracking-core-darwin-universal': 0.2.4
-      '@starknetid/vibetracking-core-darwin-x64': 0.2.4
-      '@starknetid/vibetracking-core-linux-arm64-gnu': 0.2.4
-      '@starknetid/vibetracking-core-linux-x64-gnu': 0.2.4
-      '@starknetid/vibetracking-core-win32-arm64-msvc': 0.2.4
-      '@starknetid/vibetracking-core-win32-x64-msvc': 0.2.4
+      '@starknetid/vibetracking-core-darwin-arm64': 0.2.5
+      '@starknetid/vibetracking-core-darwin-universal': 0.2.5
+      '@starknetid/vibetracking-core-darwin-x64': 0.2.5
+      '@starknetid/vibetracking-core-linux-arm64-gnu': 0.2.5
+      '@starknetid/vibetracking-core-linux-x64-gnu': 0.2.5
+      '@starknetid/vibetracking-core-win32-arm64-msvc': 0.2.5
+      '@starknetid/vibetracking-core-win32-x64-msvc': 0.2.5
 
   '@supabase/auth-js@2.89.0':
     dependencies:

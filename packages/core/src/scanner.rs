@@ -16,6 +16,7 @@ pub enum SessionType {
     Cursor,
     Amp,
     Droid,
+    OpenClaw,
 }
 
 /// Result of scanning all session directories
@@ -28,6 +29,7 @@ pub struct ScanResult {
     pub cursor_files: Vec<PathBuf>,
     pub amp_files: Vec<PathBuf>,
     pub droid_files: Vec<PathBuf>,
+    pub openclaw_files: Vec<PathBuf>,
 }
 
 impl ScanResult {
@@ -40,6 +42,7 @@ impl ScanResult {
             + self.cursor_files.len()
             + self.amp_files.len()
             + self.droid_files.len()
+            + self.openclaw_files.len()
     }
 
     /// Get all files as a single vector
@@ -67,9 +70,32 @@ impl ScanResult {
         for path in &self.droid_files {
             result.push((SessionType::Droid, path.clone()));
         }
+        for path in &self.openclaw_files {
+            result.push((SessionType::OpenClaw, path.clone()));
+        }
 
         result
     }
+}
+
+pub fn headless_roots(home_dir: &str) -> Vec<PathBuf> {
+    if let Ok(path) = std::env::var("VIBETRACKING_HEADLESS_DIR") {
+        return vec![PathBuf::from(path)];
+    }
+
+    let mut roots = Vec::new();
+    roots.push(PathBuf::from(format!(
+        "{}/.config/vibetracking/headless",
+        home_dir
+    )));
+
+    let mac_root = PathBuf::from(format!(
+        "{}/Library/Application Support/vibetracking/headless",
+        home_dir
+    ));
+    roots.push(mac_root);
+
+    roots
 }
 
 /// Scan a single directory for session files
@@ -90,17 +116,43 @@ pub fn scan_directory(root: &str, pattern: &str) -> Vec<PathBuf> {
 
             let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
+            let is_in_archive_dir = path.components().any(|c| {
+                c.as_os_str()
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case("archive")
+            });
+
             match pattern {
                 "*.json" => file_name.ends_with(".json"),
                 "*.jsonl" => file_name.ends_with(".jsonl"),
                 "*.csv" => file_name.ends_with(".csv"),
+                "usage*.csv" => {
+                    if is_in_archive_dir {
+                        return false;
+                    }
+
+                    if file_name == "usage.csv" {
+                        return true;
+                    }
+
+                    // Accept only per-account files: usage.<account>.csv
+                    if !file_name.starts_with("usage.") || !file_name.ends_with(".csv") {
+                        return false;
+                    }
+
+                    // Exclude legacy backups like usage.backup-<ts>.csv
+                    if file_name.starts_with("usage.backup") {
+                        return false;
+                    }
+
+                    true
+                }
                 "session-*.json" => {
                     file_name.starts_with("session-") && file_name.ends_with(".json")
                 }
-                "T-*.json" => {
-                    file_name.starts_with("T-") && file_name.ends_with(".json")
-                }
+                "T-*.json" => file_name.starts_with("T-") && file_name.ends_with(".json"),
                 "*.settings.json" => file_name.ends_with(".settings.json"),
+                "sessions.json" => file_name == "sessions.json",
                 _ => false,
             }
         })
@@ -120,6 +172,9 @@ pub fn scan_all_sources(home_dir: &str, sources: &[String]) -> ScanResult {
     let include_cursor = include_all || sources.iter().any(|s| s == "cursor");
     let include_amp = include_all || sources.iter().any(|s| s == "amp");
     let include_droid = include_all || sources.iter().any(|s| s == "droid");
+    let include_openclaw = include_all || sources.iter().any(|s| s == "openclaw");
+
+    let headless_roots = headless_roots(home_dir);
 
     // Define scan tasks
     let mut tasks: Vec<(SessionType, String, &str)> = Vec::new();
@@ -144,6 +199,13 @@ pub fn scan_all_sources(home_dir: &str, sources: &[String]) -> ScanResult {
             std::env::var("CODEX_HOME").unwrap_or_else(|_| format!("{}/.codex", home_dir));
         let codex_path = format!("{}/sessions", codex_home);
         tasks.push((SessionType::Codex, codex_path, "*.jsonl"));
+
+        // Codex headless: <headless_root>/codex/*.jsonl
+        for root in &headless_roots {
+            let codex_headless_path = root.join("codex");
+            let path = codex_headless_path.to_string_lossy().to_string();
+            tasks.push((SessionType::Codex, path, "*.jsonl"));
+        }
     }
 
     if include_gemini {
@@ -153,9 +215,9 @@ pub fn scan_all_sources(home_dir: &str, sources: &[String]) -> ScanResult {
     }
 
     if include_cursor {
-        // Cursor: ~/.vibetracking/cursor-cache/*.csv
+        // Cursor: ~/.vibetracking/cursor-cache/usage*.csv
         let cursor_path = format!("{}/.vibetracking/cursor-cache", home_dir);
-        tasks.push((SessionType::Cursor, cursor_path, "*.csv"));
+        tasks.push((SessionType::Cursor, cursor_path, "usage*.csv"));
     }
 
     if include_amp {
@@ -172,6 +234,19 @@ pub fn scan_all_sources(home_dir: &str, sources: &[String]) -> ScanResult {
         tasks.push((SessionType::Droid, droid_path, "*.settings.json"));
     }
 
+    if include_openclaw {
+        // Current path
+        let openclaw_path = format!("{}/.openclaw/agents", home_dir);
+        tasks.push((SessionType::OpenClaw, openclaw_path, "sessions.json"));
+        // Legacy paths (Clawd -> Moltbot -> OpenClaw rebrand history)
+        let clawdbot_path = format!("{}/.clawdbot/agents", home_dir);
+        tasks.push((SessionType::OpenClaw, clawdbot_path, "sessions.json"));
+        let moltbot_path = format!("{}/.moltbot/agents", home_dir);
+        tasks.push((SessionType::OpenClaw, moltbot_path, "sessions.json"));
+        let moldbot_path = format!("{}/.moldbot/agents", home_dir);
+        tasks.push((SessionType::OpenClaw, moldbot_path, "sessions.json"));
+    }
+
     // Execute scans in parallel
     let scan_results: Vec<(SessionType, Vec<PathBuf>)> = tasks
         .into_par_iter()
@@ -184,13 +259,14 @@ pub fn scan_all_sources(home_dir: &str, sources: &[String]) -> ScanResult {
     // Aggregate results
     for (session_type, files) in scan_results {
         match session_type {
-            SessionType::OpenCode => result.opencode_files = files,
-            SessionType::Claude => result.claude_files = files,
-            SessionType::Codex => result.codex_files = files,
-            SessionType::Gemini => result.gemini_files = files,
-            SessionType::Cursor => result.cursor_files = files,
-            SessionType::Amp => result.amp_files = files,
-            SessionType::Droid => result.droid_files = files,
+            SessionType::OpenCode => result.opencode_files.extend(files),
+            SessionType::Claude => result.claude_files.extend(files),
+            SessionType::Codex => result.codex_files.extend(files),
+            SessionType::Gemini => result.gemini_files.extend(files),
+            SessionType::Cursor => result.cursor_files.extend(files),
+            SessionType::Amp => result.amp_files.extend(files),
+            SessionType::Droid => result.droid_files.extend(files),
+            SessionType::OpenClaw => result.openclaw_files.extend(files),
         }
     }
 
@@ -200,9 +276,17 @@ pub fn scan_all_sources(home_dir: &str, sources: &[String]) -> ScanResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::fs::{self, File};
     use std::io::Write;
     use tempfile::TempDir;
+
+    fn restore_env(var: &str, previous: Option<String>) {
+        match previous {
+            Some(value) => std::env::set_var(var, value),
+            None => std::env::remove_var(var),
+        }
+    }
 
     #[test]
     fn test_scan_result_total_files() {
@@ -214,6 +298,7 @@ mod tests {
             cursor_files: vec![],
             amp_files: vec![],
             droid_files: vec![],
+            openclaw_files: vec![],
         };
         assert_eq!(result.total_files(), 4);
     }
@@ -228,6 +313,7 @@ mod tests {
             cursor_files: vec![PathBuf::from("e.csv")],
             amp_files: vec![],
             droid_files: vec![],
+            openclaw_files: vec![],
         };
 
         let all = result.all_files();
@@ -377,7 +463,43 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_headless_roots_default() {
+        let previous = std::env::var("VIBETRACKING_HEADLESS_DIR").ok();
+        std::env::remove_var("VIBETRACKING_HEADLESS_DIR");
+
+        let home = "/tmp/vibetracking-test-home";
+        let roots = headless_roots(home);
+        let config_root = PathBuf::from(format!("{}/.config/vibetracking/headless", home));
+        let mac_root = PathBuf::from(format!(
+            "{}/Library/Application Support/vibetracking/headless",
+            home
+        ));
+
+        assert_eq!(roots.len(), 2);
+        assert!(roots.contains(&config_root));
+        assert!(roots.contains(&mac_root));
+
+        restore_env("VIBETRACKING_HEADLESS_DIR", previous);
+    }
+
+    #[test]
+    #[serial]
+    fn test_headless_roots_override() {
+        let previous = std::env::var("VIBETRACKING_HEADLESS_DIR").ok();
+        std::env::set_var("VIBETRACKING_HEADLESS_DIR", "/custom/headless");
+
+        let roots = headless_roots("/tmp/home");
+        assert_eq!(roots, vec![PathBuf::from("/custom/headless")]);
+
+        restore_env("VIBETRACKING_HEADLESS_DIR", previous);
+    }
+
+    #[test]
+    #[serial]
     fn test_scan_all_sources_opencode() {
+        let previous_xdg = std::env::var("XDG_DATA_HOME").ok();
+
         let dir = TempDir::new().unwrap();
         let home = dir.path();
         setup_mock_opencode_dir(home);
@@ -390,6 +512,8 @@ mod tests {
         assert!(result.claude_files.is_empty());
         assert!(result.codex_files.is_empty());
         assert!(result.gemini_files.is_empty());
+
+        restore_env("XDG_DATA_HOME", previous_xdg);
     }
 
     #[test]
@@ -434,7 +558,49 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_scan_all_sources_headless_paths() {
+        let previous_headless = std::env::var("VIBETRACKING_HEADLESS_DIR").ok();
+        let previous_codex = std::env::var("CODEX_HOME").ok();
+        std::env::remove_var("VIBETRACKING_HEADLESS_DIR");
+
+        let dir = TempDir::new().unwrap();
+        let home = dir.path();
+
+        // Isolate CODEX_HOME so we don't scan the developer's real ~/.codex
+        std::env::set_var("CODEX_HOME", home.join(".codex-nonexistent"));
+
+        let mac_root = home
+            .join("Library")
+            .join("Application Support")
+            .join("vibetracking")
+            .join("headless");
+
+        fs::create_dir_all(mac_root.join("codex")).unwrap();
+        File::create(mac_root.join("codex").join("codex.jsonl")).unwrap();
+
+        let result = scan_all_sources(
+            home.to_str().unwrap(),
+            &[
+                "claude".to_string(),
+                "codex".to_string(),
+                "gemini".to_string(),
+            ],
+        );
+
+        assert!(result.claude_files.is_empty());
+        assert_eq!(result.codex_files.len(), 1);
+        assert!(result.gemini_files.is_empty());
+
+        restore_env("VIBETRACKING_HEADLESS_DIR", previous_headless);
+        restore_env("CODEX_HOME", previous_codex);
+    }
+
+    #[test]
+    #[serial]
     fn test_scan_all_sources_codex_with_env() {
+        let previous_codex = std::env::var("CODEX_HOME").ok();
+
         let dir = TempDir::new().unwrap();
         let home = dir.path();
         setup_mock_codex_dir(home);
@@ -444,5 +610,7 @@ mod tests {
 
         let result = scan_all_sources(home.to_str().unwrap(), &["codex".to_string()]);
         assert_eq!(result.codex_files.len(), 1);
+
+        restore_env("CODEX_HOME", previous_codex);
     }
 }

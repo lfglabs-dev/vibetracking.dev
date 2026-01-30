@@ -3,7 +3,7 @@
  * Mirrors packages/cli/src/graph-types.ts.
  */
 
-export type SourceType = "opencode" | "claude" | "codex" | "gemini" | "cursor" | "amp" | "droid";
+export type SourceType = "opencode" | "claude" | "codex" | "gemini" | "cursor" | "amp" | "droid" | "openclaw";
 
 export interface TokenBreakdown {
   input: number;
